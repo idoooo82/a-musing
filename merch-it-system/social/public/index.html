@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merch It — סושיאל</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>סושיאל</h1>
+  <select id="project" aria-label="פרויקט"></select>
+  <span id="agent-state" class="pill"></span>
+</header>
+<main>
+  <section class="card">
+    <h2>פוסט חדש — לינקדאין של מאמא בוי</h2>
+    <label>סצנה <input id="scene" placeholder="למשל: הארוחה על הספינה, 12:40"></label>
+    <label>מוצר <input id="product"></label>
+    <label>דמות <input id="character"></label>
+    <label>ציטוט <textarea id="quote" rows="2"></textarea></label>
+    <label>מצב הציטוט
+      <select id="quoteStatus">
+        <option value="machine">תמלול מכונה, לא מאומת</option>
+        <option value="verified">נבדק מול הסרט</option>
+        <option value="creator_fix">תיקון של היוצר</option>
+      </select>
+    </label>
+    <label>הערה <textarea id="note" rows="2"></textarea></label>
+    <button id="generate">צור טיוטה</button>
+    <p id="msg" role="status"></p>
+  </section>
+  <section id="drafts"></section>
+</main>
+<script src="app.js" type="module"></script>
+</body>
+</html>
