@@ -198,3 +198,10 @@ button:disabled{cursor:not-allowed;opacity:.43}
 .stage.super:before{content:'';position:absolute;inset:0;z-index:20;pointer-events:none;background:radial-gradient(circle at 50% 50%,#fff6d655,#ffb43c33 40%,transparent 70%);animation:hitFlash 1.2s forwards}
 .music-button{min-width:44px;font-size:18px}
 @media(max-width:700px){.super-button{min-width:84px;height:55px;font-size:14px}.kiss-button{min-width:140px}}
+
+/* Ortal's corridor behind the back door: three short clips (fight loop, open, close). The door and glass are inside the clips, so the painted door halves step aside once a clip is showing. */
+.door-clip{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .1s linear;pointer-events:none}
+.door-clip.on{opacity:1}
+.back-door.video-on .door-half,.back-door.video-on .door-wind{display:none}
+.back-door.zap:after{content:'';position:absolute;inset:0;z-index:999;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,#ff3d6e00 35%,#ff3d6e7a);animation:doorZap .32s ease-out forwards}
+@keyframes doorZap{from{opacity:1}to{opacity:0}}

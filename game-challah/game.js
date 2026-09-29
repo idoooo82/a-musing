@@ -101,6 +101,7 @@
   function beginPlay() {
     $('howto').hidden = true;
     startMusic();
+    doorClips.start();
     {
       stage.classList.remove('baking', 'baking-oven');
       stage.classList.add('playing');
@@ -475,6 +476,7 @@
     $('over-best').textContent = record ? 'שיא חדש!' : `השיא שלך: ${best}`;
     $('over-line').textContent = state.score >= 20 ? 'צדיקה. פשוט צדיקה.' : state.score >= 10 ? 'השולחן שלך מכובד.' : state.score >= 4 ? 'יש למה לחזור בשבת הבאה.' : 'צאי לחל״ת כפרה.';
     $('game-over').hidden = false; $('pause-button').hidden = true;
+    doorClips.stop();
     music.pause(); try { music.currentTime = 0; } catch (_) {}
     fx('windOff'); setTimeout(() => fx('gameOver'), 250);
     track('score-' + (state.score >= 20 ? '20+' : state.score >= 10 ? '10-19' : state.score >= 4 ? '4-9' : '0-3'));
@@ -487,14 +489,66 @@
     tableBreads.querySelectorAll('img').forEach((i) => i.classList.remove('fallen'));
     heldBread.classList.remove('visible');
     $('game-over').hidden = true; $('pause-button').hidden = false;
+    doorClips.start();
     state.charge = 0; addCharge(0); if (state.musicOn) music.play().catch(() => {}); if (state.backDoorOpen) fx('windOn');
     syncLives(); syncHud(); syncCharacter(); setCharacterClass('idle'); updateKissButton();
     setInstruction('נוגעים בחלה שנפלה. יש לה חמש שניות.');
     track('replay');
   }
+  // Ortal's corridor behind the back door: the fight loops; a kiss plays "open" once and holds its last frame;
+  // the next kiss plays "close" once and returns to the fight. Each switch is a short cross-fade between preloaded players.
+  // If the clips cannot play, the painted door halves stay and work as before.
+  const doorClips = (() => {
+    const box = $('back-door');
+    const clips = {};
+    box.querySelectorAll('.door-clip').forEach((video) => { video.muted = true; clips[video.dataset.clip] = video; });
+    let current = null, busy = false, failed = false, running = false, layer = 0, zapTimer = null;
+    const fail = () => { failed = true; busy = false; box.classList.remove('video-on'); Object.values(clips).forEach((v) => { v.classList.remove('on'); v.pause(); }); };
+    const zap = () => { box.classList.remove('zap'); void box.offsetWidth; box.classList.add('zap'); };
+    function show(name) {
+      const next = clips[name], previous = current && clips[current];
+      current = name;
+      try { next.currentTime = 0; } catch (_) {}
+      const p = next.play();
+      const reveal = () => {
+        if (current !== name) return;
+        next.style.zIndex = String(++layer);
+        next.classList.add('on');
+        box.classList.add('video-on');
+        if (previous && previous !== next) setTimeout(() => { if (current !== previous.dataset.clip) { previous.classList.remove('on'); previous.pause(); } }, 120);
+      };
+      if (p && p.then) p.then(reveal, fail); else reveal();
+    }
+    // the fight's loop point is an edit, not a seamless loop: a soft red laser glow covers the cut
+    clips.fight.addEventListener('timeupdate', () => {
+      const v = clips.fight, left = v.duration - v.currentTime;
+      if (current === 'fight' && !zapTimer && left < .35) zapTimer = setTimeout(() => { zapTimer = null; if (current === 'fight') zap(); }, Math.max(0, left - .12) * 1000);
+    });
+    clips.open.addEventListener('ended', () => { busy = false; });
+    clips.close.addEventListener('ended', () => { if (current === 'close') show('fight'); busy = false; });
+    Object.values(clips).forEach((v) => v.addEventListener('error', fail));
+    return {
+      get busy() { return !failed && busy; },
+      start() {
+        running = true;
+        if (failed) return;
+        if (!current) return show('fight');
+        if (!clips[current].ended) clips[current].play().catch(() => {});
+      },
+      stop() { running = false; if (current) clips[current].pause(); },
+      set(open) {
+        if (failed || !running) return;
+        busy = true;
+        show(open ? 'open' : 'close');
+      }
+    };
+  })();
+
   // Shedai opens with a kiss — so every kiss also opens (and the next one closes) the door at the end of the corridor.
   function toggleBackDoor() {
+    if (doorClips.busy) return; // the door is mid-way through opening or closing; one kiss cannot trigger it twice
     state.backDoorOpen = !state.backDoorOpen;
+    doorClips.set(state.backDoorOpen);
     $('back-door').classList.toggle('open', state.backDoorOpen);
     fx(state.backDoorOpen ? 'doorOpen' : 'doorClose'); fx(state.backDoorOpen ? 'windOn' : 'windOff');
   }
@@ -530,6 +584,7 @@
   $('pause-button').addEventListener('click', () => {
     state.paused = !state.paused;
     if (state.paused) music.pause(); else if (state.musicOn) music.play().catch(() => {});
+    if (state.paused) doorClips.stop(); else doorClips.start();
     $('pause-button').textContent = state.paused ? 'המשך' : 'השהיה';
     setInstruction(state.paused ? 'המשחק מושהה' : (state.carrying ? 'בת חן מחכה לנשיקה שלכם.' : 'נוגעים בחלה שרוצים להציל.'));
   });

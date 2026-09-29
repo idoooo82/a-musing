@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#171124">
   <title>בשביל החלה · האנושות כפרה עליה</title>
   <meta name="description" content="קרב חלל, חלות על הרצפה ובת־חן אחת שלא תוותר. משחק קצר לנייד מעולם ״האנושות כפרה עליה״.">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
   <main class="shell">
@@ -18,7 +18,11 @@
     <section class="game-frame" aria-label="בשביל החלה — משחק נייד עם בת חן">
       <div id="stage" class="stage intro" tabindex="0">
         <div class="room-backdrop"></div>
-        <div id="back-door" class="back-door" aria-hidden="true"><div class="back-space"></div><div class="door-wind"></div><span class="door-half l"></span><span class="door-half r"></span></div>
+        <div id="back-door" class="back-door" aria-hidden="true"><div class="back-space"></div><div class="door-wind"></div><span class="door-half l"></span><span class="door-half r"></span>
+          <video class="door-clip" data-clip="fight" src="assets/ortal-door-v3/ortal-fight-v3.mp4" muted playsinline loop preload="auto"></video>
+          <video class="door-clip" data-clip="open" src="assets/ortal-door-v3/ortal-open-v3.mp4" poster="assets/ortal-door-v3/ortal-open-hold-v3.jpg" muted playsinline preload="auto"></video>
+          <video class="door-clip" data-clip="close" src="assets/ortal-door-v3/ortal-close-v3.mp4" muted playsinline preload="auto"></video>
+        </div>
         <div class="space-glint" aria-hidden="true"></div>
         <div class="battle-window" aria-hidden="true"><i></i><i></i><i></i></div>
         <div id="laser" class="laser" aria-hidden="true"></div>
@@ -107,6 +111,6 @@
     <p class="note">חלה שנפלה נפסלת אחרי כמה שניות על הרצפה. נוגעים בה, בת־חן מרימה, ונשיקה (״מוואה״ למיקרופון או הכפתור) מחזירה אותה לשולחן. המיקרופון רק מקשיב לרגע הנשיקה: אין הקלטה ואין שליחת קול.</p>
   </main>
   <script src="sfx.js?v=1" defer></script>
-  <script src="game.js?v=6" defer></script><script src="/imperial-stream/track.js?v=7" defer></script>
+  <script src="game.js?v=7" defer></script><script src="/imperial-stream/track.js?v=7" defer></script>
 </body>
 </html>
