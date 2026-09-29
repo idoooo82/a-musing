@@ -24,7 +24,8 @@
     micLast: 0, noiseFloor: .012, soundActive: false, lastKiss: 0, toastTimer: null,
     doorOpen: false, paused: false, carriedTableIndex: null,
     lives: 3, best: 0, carryStart: 0, backDoorOpen: false, level: 0, charge: 0, musicOn: true,
-    queuedBread: null, round: 0
+    queuedBread: null, round: 0,
+    speed: 0, facing: 1, poseTime: 0, stepPhase: 0, nextFidget: 3, hopUntil: 0
   };
   const SUPER_AT = 5;
   // Game rules, in one place
@@ -38,7 +39,6 @@
   function updateKissButton() {
     kissButton.disabled = state.phase !== 'playing' || !state.carrying || state.lifting || state.kissing || state.delivering;
     kissButton.classList.toggle('ready', state.carrying && !kissButton.disabled);
-    kissButton.textContent = '💋 נשיקה לחלה';
   }
 
   function armEntrance(withMic) {
@@ -77,22 +77,18 @@
     $('intro-panel').classList.add('exit');
     stage.classList.remove('intro');
     stage.classList.add('baking');
-    setInstruction('בת־חן קולעת חלה לשבת…');
+    document.body.classList.remove('intro-mode');
     setTimeout(() => { $('intro-panel').hidden = true; }, 650);
     setTimeout(() => {
       stage.classList.add('baking-oven');
       fx('bell');
-      bakingCaption.textContent = 'הצמה נכנסת לתנור. החלות המוכנות מחכות על השולחן.';
-      setInstruction('החלה בתנור. הכול שקט… בינתיים.');
-    }, 2400);
-    setTimeout(startBattle, 4900);
+    }, 3000);
+    setTimeout(startBattle, 6000);
   }
   function startBattle() {
     if (state.phase !== 'baking') return;
     state.phase = 'alert';
     stage.classList.add('alert');
-    bakingCaption.textContent = 'אזעקה! המגן של שדי תחת אש!';
-    setInstruction('אזעקה! לייזרים פוגעים במגן של שדי.');
     fx('alarm');
     setTimeout(() => {
       if (!state.seenHowTo) { state.seenHowTo = true; $('howto').hidden = false; $('howto-go').focus(); return; }
@@ -120,7 +116,9 @@
   }
   $('howto-go').addEventListener('click', beginPlay);
 
+  // event messages were retired: the scene, sounds and the ring on each challah carry the story
   function setToast(text, duration = 1600) {
+    return;
     toast.textContent = text;
     toast.classList.add('show');
     clearTimeout(state.toastTimer);
@@ -131,26 +129,31 @@
     $('score').textContent = state.score;
   }
   function setCharacterClass(name) {
+    if (batchen.classList.contains(name)) return;
     batchen.classList.remove('walk', 'idle', 'holding', 'kissing');
     batchen.classList.add(name);
   }
   const feetY = () => 97 - 42 * state.depth;
-  const characterWidth = () => 46 - 20 * state.depth;
-  const characterHeight = () => characterWidth() * 1.5 * stage.clientWidth / stage.clientHeight;
+  const characterHeight = () => 54 - 24 * state.depth; // % of the stage height
+  const characterWidth = () => characterHeight() / 1.5 * stage.clientHeight / stage.clientWidth;
   const handsY = () => feetY() - characterHeight() * .42;
   const mouthY = () => feetY() - characterHeight() * .78;
   function syncCharacter() {
     batchen.style.left = `${state.x}%`;
     batchen.style.bottom = `${3 + 42 * state.depth}%`;
     batchen.style.width = `${characterWidth()}%`;
-    heldBread.style.left = `${state.x + 8 - 3 * state.depth}%`;
+    heldBread.style.left = `${state.x + 11 - 4 * state.depth}%`;
     heldBread.style.top = `${handsY()}%`;
-    heldBread.style.width = `${17 - 7 * state.depth}%`;
-    $('blessing').style.left = `${state.x + 5 - 2 * state.depth}%`;
+    heldBread.style.width = `${22 - 9 * state.depth}%`;
+    $('blessing').style.left = `${state.x + 7 - 3 * state.depth}%`;
     $('blessing').style.top = `${mouthY() - 4}%`;
     $('foot-shadow').style.left = `${state.x}%`;
     $('foot-shadow').style.top = `${feetY() - 1}%`;
-    $('foot-shadow').style.width = `${24 - 9 * state.depth}%`;
+    $('foot-shadow').style.width = `${32 - 12 * state.depth}%`;
+    // the lips button floats beside her face, on the side with more room
+    const side = state.x > 50 ? -1 : 1;
+    kissButton.style.left = `${state.x + side * characterWidth() * .42}%`;
+    kissButton.style.top = `${mouthY() - 2}%`;
   }
   syncCharacter();
   window.addEventListener('resize', syncCharacter);
@@ -238,8 +241,12 @@
     const startY = (breadBounds.top + breadBounds.height / 2 - stageBounds.top) / stageBounds.height * 100;
     image.classList.add('fallen');
     setTimeout(() => fx('whoosh', .8), 120);
-    const landingX = 17 + Math.random() * 65;
-    const landingY = 72 + Math.random() * 17;
+    // a challah never lands hidden behind Bat-Chen's body
+    let landingX, landingY, tries = 0;
+    do {
+      landingX = 17 + Math.random() * 65;
+      landingY = 72 + Math.random() * 17;
+    } while (++tries < 12 && landingY < feetY() + 1 && Math.abs(landingX - state.x) < characterWidth() * .36);
     const bread = {
       id: ++breadId, x: startX, y: startY, startX, startY, tableIndex: index,
       landingX, landingY, flight: 0, flightDuration: .78 + Math.random() * .22,
@@ -262,6 +269,7 @@
     });
     breadLayer.appendChild(bread.element);
     state.breads.push(bread);
+    sortBread(bread);
     if (state.score === 0 && state.breads.length <= 1) setToast('החללית היטלטלה — חלה נפלה מהשולחן!');
   }
 
@@ -269,6 +277,11 @@
     state.queuedBread?.element.classList.remove('queued');
     state.queuedBread = bread;
     bread?.element.classList.add('queued');
+  }
+  // a challah farther away than Bat-Chen's feet is drawn behind her; a nearer one in front of her
+  function sortBread(bread) {
+    const inFront = (bread.landed ? bread.y : bread.landingY) >= feetY() - 1;
+    if (bread.inFront !== inFront) { bread.inFront = inFront; bread.element.style.zIndex = inFront ? '8' : '6'; }
   }
   function chooseBread(bread) {
     if (state.phase !== 'playing' || state.paused) return;
@@ -319,7 +332,7 @@
     const round = state.round;
     // a quick kiss charges the super move; the score counts only challot actually saved
     const quick = performance.now() - state.carryStart < 1600;
-    if (quick) { addCharge(1); popScore('נשיקת בזק! ⚡'); setTimeout(() => fx('score', true), 350); }
+    if (quick) { addCharge(1); setTimeout(() => fx('score', true), 350); }
     toggleBackDoor();
     stage.classList.add('slowmo');
     updateKissButton();
@@ -329,6 +342,8 @@
     heldBread.style.left = `${state.x + 2 - state.depth}%`;
     heldBread.style.transform = 'translate(-50%,-50%) rotate(-12deg) scale(.9)';
     if (!state.micKiss) fx('smooch');
+    [190, 360, 520].forEach((ms, i) => setTimeout(() => { if (round === state.round) fx('smooch'); }, ms + i * 20));
+    kissBurst();
     state.micKiss = false;
     setTimeout(() => {
       if (round !== state.round) return;
@@ -352,6 +367,23 @@
       setCharacterClass('walk');
       setInstruction('עכשיו מחזירים את החלה אל השולחן.');
     }, 1050);
+  }
+
+  function kissBurst() {
+    for (let i = 0; i < 9; i++) {
+      const lips = document.createElement('span');
+      const angle = -Math.PI / 2 + (Math.random() - .5) * 2.4;
+      const reach = 16 + Math.random() * 18;
+      lips.className = 'kiss-pop';
+      lips.textContent = '💋';
+      lips.style.setProperty('--dx', `${Math.cos(angle) * reach}cqw`);
+      lips.style.setProperty('--dy', `${Math.sin(angle) * reach}cqw`);
+      lips.style.setProperty('--r', `${(Math.random() - .5) * 70}deg`);
+      lips.style.setProperty('--s', (.7 + Math.random() * .7).toFixed(2));
+      lips.style.animationDelay = `${120 + i * 70}ms`;
+      stage.appendChild(lips);
+      setTimeout(() => lips.remove(), 1500 + i * 70);
+    }
   }
 
   function placeBread() {
@@ -510,7 +542,7 @@
     stage.classList.remove('slowmo');
     heldBread.style.transition = ''; heldBread.style.transform = '';
     Object.assign(state, {breads: [], queuedBread: null, round: state.round + 1, score: 0, lives: LIVES, carrying: false, lifting: false, kissing: false, delivering: false,
-      targetBread: null, targetX: null, targetDepth: null, arrivalAction: null, gameTime: 0, nextHit: 1.6, x: 50, depth: 0, level: 0, paused: false, phase: 'playing'});
+      targetBread: null, targetX: null, targetDepth: null, arrivalAction: null, gameTime: 0, nextHit: 1.6, x: 50, depth: 0, speed: 0, level: 0, paused: false, phase: 'playing'});
     tableBreads.querySelectorAll('img').forEach((i) => i.classList.remove('fallen'));
     heldBread.classList.remove('visible');
     $('game-over').hidden = true; $('pause-button').hidden = false;
@@ -595,6 +627,10 @@
   }
   stage.addEventListener('pointerdown', (event) => {
     if (state.phase !== 'playing' || state.paused) return;
+    if (state.carrying && !state.kissing && !state.delivering) {
+      const body = batchen.getBoundingClientRect();
+      if (event.clientX >= body.left + body.width * .2 && event.clientX <= body.right - body.width * .2 && event.clientY >= body.top && event.clientY <= body.bottom) return onKiss('button');
+    }
     const bounds = stage.getBoundingClientRect();
     const touchX = (event.clientX - bounds.left) / bounds.width * 100;
     const touchY = (event.clientY - bounds.top) / bounds.height * 100;
@@ -606,6 +642,7 @@
   $('skip-button').addEventListener('click', () => { unlockAudio(); armEntrance(false); });
   doorTouchButton.addEventListener('click', () => onKiss('button'));
   kissButton.addEventListener('click', () => onKiss('button'));
+  kissButton.addEventListener('pointerdown', (event) => event.stopPropagation());
   $('pause-button').addEventListener('click', () => {
     state.paused = !state.paused;
     if (state.paused) music.pause(); else if (state.musicOn) music.play().catch(() => {});
@@ -613,6 +650,66 @@
     $('pause-button').textContent = state.paused ? 'המשך' : 'השהיה';
     setInstruction(state.paused ? 'המשחק מושהה' : (state.carrying ? 'בת חן מחכה לנשיקה שלכם.' : 'נוגעים בחלה שרוצים להציל.'));
   });
+
+  // Walking: a straight line across the floor, speeding up from a stop and braking into place.
+  // One unit of depth covers about as much floor as 75% of the screen width; far away she looks slower.
+  const DEPTH_UNITS = 75, WALK_ACCEL = 170;
+  function walk(dt) {
+    const wantX = state.targetX ?? state.x, wantDepth = state.targetDepth ?? state.depth;
+    const vx = wantX - state.x, vd = (wantDepth - state.depth) * DEPTH_UNITS;
+    const dist = Math.hypot(vx, vd);
+    if (dist > .3 && !state.kissing && !state.lifting) {
+      const top = 46 * characterHeight() / 54;
+      state.speed = Math.min(top, state.speed + WALK_ACCEL * dt, Math.sqrt(2 * WALK_ACCEL * dist));
+      const step = Math.min(dist, state.speed * dt);
+      state.x = Math.max(13, Math.min(82, state.x + vx / dist * step));
+      state.depth = Math.max(0, Math.min(1, state.depth + vd / dist * step / DEPTH_UNITS));
+      if (Math.abs(vx) > dist * .3) face(Math.sign(vx));
+      syncCharacter();
+      setCharacterClass('walk');
+      return;
+    }
+    if (dist > 0 && dist <= .3) { state.x = wantX; state.depth = wantDepth; syncCharacter(); }
+    state.speed = 0;
+    if (!state.kissing && !state.lifting) setCharacterClass(state.carrying ? 'holding' : 'idle');
+  }
+  function face(direction) {
+    if (!direction || direction === state.facing) return;
+    state.facing = direction;
+    batchen.classList.toggle('face-left', direction < 0);
+  }
+  // Her body is never still: steps bob and lean while she walks; standing, she breathes, sways,
+  // shifts her weight and now and then turns toward a challah on the floor.
+  const batchenArt = batchen.querySelector('.batchen-art');
+  function pose(dt) {
+    state.poseTime += dt;
+    const t = state.poseTime;
+    if (batchen.classList.contains('kissing')) { batchenArt.style.transform = ''; return; }
+    let x = 0, y = 0, rot = 0, sy = 1;
+    if (batchen.classList.contains('walk')) {
+      state.stepPhase += dt * Math.PI * (4.6 + state.speed * .04);
+      const s = Math.sin(state.stepPhase);
+      y = -Math.abs(s) * 2.4;
+      rot = s * 1.8 + Math.min(4, state.speed * .09);
+      sy = 1 - (1 - Math.abs(s)) * .018;
+    } else {
+      y = Math.sin(t * 2.1) * -.35;
+      sy = 1 + Math.sin(t * 2.1) * .011;
+      rot = Math.sin(t * .8) * 1.3;
+      x = Math.sin(t * .8) * .8;
+      if (batchen.classList.contains('holding')) rot += Math.sin(t * 3) * .9;
+      if (t > state.nextFidget) {
+        state.nextFidget = t + 2.8 + Math.random() * 3;
+        const landed = state.breads.filter((b) => b.landed);
+        if (landed.length && state.phase === 'playing') {
+          const nearest = landed.reduce((a, b) => Math.abs(a.x - state.x) < Math.abs(b.x - state.x) ? a : b);
+          face(Math.sign(nearest.x - state.x) || state.facing);
+        } else state.hopUntil = t + .42;
+      }
+      if (t < state.hopUntil) y -= Math.sin((1 - (state.hopUntil - t) / .42) * Math.PI) * 2.2;
+    }
+    batchenArt.style.transform = `translate(${x.toFixed(2)}%,${y.toFixed(2)}%) rotate(${rot.toFixed(2)}deg) scaleY(${sy.toFixed(4)})`;
+  }
 
   function frame(now) {
     const dt = Math.min((now - state.lastFrame) / 1000, .05);
@@ -624,18 +721,7 @@
         shipHit();
         state.nextHit = state.gameTime + hitGap();
       }
-      const dx = state.targetX === null ? 0 : state.targetX - state.x;
-      const dd = state.targetDepth === null ? 0 : state.targetDepth - state.depth;
-      const movingX = Math.abs(dx) > .25 ? Math.sign(dx) : 0;
-      const movingDepth = Math.abs(dd) > .007 ? Math.sign(dd) : 0;
-      if ((movingX || movingDepth) && !state.kissing && !state.lifting) {
-        state.x = Math.max(13, Math.min(82, state.x + movingX * Math.min(Math.abs(dx), dt * 50)));
-        state.depth = Math.max(0, Math.min(1, state.depth + movingDepth * Math.min(Math.abs(dd), dt * 1.15)));
-        syncCharacter();
-        setCharacterClass('walk');
-      } else if (!state.kissing && !state.carrying && !state.lifting && !batchen.classList.contains('idle')) {
-        setCharacterClass('idle');
-      }
+      walk(dt);
       if (state.targetX !== null && Math.abs(state.targetX - state.x) <= .25) state.targetX = null;
       if (state.targetDepth !== null && Math.abs(state.targetDepth - state.depth) <= .007) state.targetDepth = null;
       if (state.delivering && state.arrivalAction === 'place' && state.targetX === null && state.targetDepth === null) placeBread();
@@ -662,6 +748,7 @@
           }
         }
       }
+      for (const bread of state.breads) sortBread(bread);
       for (const bread of [...state.breads]) {
         if (!bread.landed || bread === state.targetBread && Math.abs(bread.x - state.x) < 6) continue;
         const left = 1 - (state.gameTime - bread.landedAt) / floorLimit();
@@ -676,6 +763,7 @@
         if (selected.landed && Math.abs(selected.x - state.x) < 2.2 && Math.abs(selected.y - feetY()) < 2.7) pickUp(selected);
       }
     }
+    if (!state.paused) pose(dt);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
