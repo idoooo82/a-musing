@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171124">
+  <title>בשביל החלה · האנושות כפרה עליה</title>
+  <meta name="description" content="קרב חלל, חלות על הרצפה ובת־חן אחת שלא תוותר. משחק קצר לנייד מעולם ״האנושות כפרה עליה״.">
+  <link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+  <main class="shell">
+    <div class="topline">
+      <span class="brand">האנושות כפרה עליה <span class="spark">✦</span> שדי</span>
+      
+    </div>
+
+    <section class="game-frame" aria-label="בשביל החלה — משחק נייד עם בת חן">
+      <div id="stage" class="stage intro" tabindex="0">
+        <div class="room-backdrop"></div>
+        <div id="back-door" class="back-door" aria-hidden="true"><div class="back-space"></div><div class="door-wind"></div><span class="door-half l"></span><span class="door-half r"></span></div>
+        <div class="space-glint" aria-hidden="true"></div>
+        <div class="battle-window" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div id="laser" class="laser" aria-hidden="true"></div>
+        <div id="flash" class="flash" aria-hidden="true"></div>
+        <div id="table-breads" class="table-breads" aria-hidden="true"><img src="assets/challah.webp" alt=""><img src="assets/challah.webp" alt=""><img src="assets/challah.webp" alt=""></div>
+        <div id="bread-layer" class="bread-layer" aria-hidden="true"></div>
+        <div id="foot-shadow" class="foot-shadow" aria-hidden="true"></div>
+
+        <div id="batchen" class="batchen" aria-label="בת חן, בחולצת אולפנת מכבדות">
+          <div class="batchen-art">
+            <img src="assets/batchen-provisional.webp" alt="" draggable="false">
+            <div class="shirt-print" aria-hidden="true"><span>אולפנת</span><span>מכבדות</span></div>
+            <span class="beauty-mark" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div id="held-bread" class="held-bread" aria-hidden="true"><img src="assets/challah.webp" alt=""></div>
+        <div id="blessing" class="blessing" aria-hidden="true">✦</div>
+        <div id="kiss-cut-in" class="kiss-cut-in" aria-hidden="true"><img src="assets/batchen-kiss-closeup-provisional.webp" alt=""></div>
+        <div id="baking-sequence" class="baking-sequence" aria-hidden="true">
+          <img class="braiding-frame" src="assets/batchen-braiding-calm.webp" alt="">
+          <img class="oven-frame" src="assets/batchen-oven-calm.webp" alt="">
+          <div id="baking-caption" class="baking-caption">רגע לפני הקרב, בת־חן קולעת חלה לשבת…</div>
+        </div>
+        <div class="emergency-light" aria-hidden="true"></div>
+
+        <div class="hud">
+          <div class="hud-block"><small>חלות שניצלו</small><strong id="score">0</strong></div>
+          <div class="hud-block"><small>חלות לשבת</small><span id="lives" class="lives"></span></div>
+        </div>
+        <div id="super-title" class="super-title" aria-hidden="true"><span>בל</span><span>תשחית!</span></div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+        <div id="intro-panel" class="intro-panel">
+          <div id="exterior-hatch" class="exterior-hatch" aria-hidden="true"><span class="hatch-left"></span><span class="hatch-right"></span></div>
+          <img class="sesame-galaxy" src="assets/sesame-galaxy.svg" alt="" draggable="false">
+          <div class="intro-copy">
+            <span class="eyebrow">משחק חדש מכוכבי האנושות כפרה עליה</span>
+            <h1 class="game-logo"><span>בשביל</span><span>החלה</span></h1>
+            <p>נכנסים לשדי בנשיקה. בפנים בת־חן אופה חלות לשבת — עד שהקרב מטלטל את החללית.</p>
+            <div class="intro-actions">
+              <button id="mic-button" class="primary">לאשר מיקרופון ולהיכנס לשדי</button>
+              <button id="skip-button" class="secondary">להיכנס בלי מיקרופון</button>
+            </div>
+            <span id="mic-status" class="mic-status"></span>
+            <div id="door-prompt" class="door-prompt" hidden>תנו ״מוואה״ — הנשיקה פותחת את פתח החללית.</div>
+            <button id="door-touch-button" class="door-touch-button" hidden>פתיחת הדלת בלי מיקרופון</button>
+          </div>
+        </div>
+
+        <div id="howto" class="game-over howto" hidden>
+          <div class="over-card">
+            <span class="eyebrow">איך משחקים</span>
+            <strong class="howto-title">חוק חמש השניות</strong>
+            <ol class="howto-list">
+              <li>הקרב מטלטל את שדי, והחלות נופלות מהשולחן.</li>
+              <li>לכל חלה על הרצפה יש חמש שניות. נוגעים בה, ובת־חן רצה להרים.</li>
+              <li>״מוואה״ למיקרופון (או הכפתור) — נשיקה, והחלה חוזרת לשולחן.</li>
+              <li>שלוש חלות נפסלו? הקרב נגמר.</li>
+            </ol>
+            <button id="howto-go" class="primary">יאללה, להציל חלות</button>
+          </div>
+        </div>
+        <div id="game-over" class="game-over" hidden>
+          <div class="over-card">
+            <span class="eyebrow">הקרב נגמר · שבת שלום</span>
+            <strong id="over-score" class="over-score">0</strong>
+            <span class="over-label">חלות ניצלו ונושקו</span>
+            <span id="over-best" class="over-best"></span>
+            <p id="over-line" class="over-line"></p>
+            <button id="again-button" class="primary">עוד סיבוב</button>
+            <button id="share-button" class="secondary">לאתגר חבר.ה</button>
+            <a class="over-series" href="/imperial-stream/" target="_blank" rel="noopener">לצפות ב״האנושות כפרה עליה״ ↗</a>
+          </div>
+        </div>
+        <div id="start-curtain" class="start-curtain" hidden><span>אוי לא — חלה!</span></div>
+      </div>
+    </section>
+
+    <div class="controls">
+      <div id="instruction" class="instruction">נוגעים בחלה שרוצים להציל</div>
+      <button id="kiss-button" class="kiss-button" disabled>💋 נשיקה לחלה</button>
+      <button id="super-button" class="super-button" disabled aria-label="המהלך המיוחד: בל תשחית"><span id="super-fill" class="super-fill"></span><span class="super-label">בל תשחית</span></button>
+      <button id="pause-button" class="pause-button" hidden>השהיה</button>
+      <button id="music-button" class="pause-button music-button" hidden aria-label="השתקת מוזיקה">🔊</button>
+    </div>
+    <p class="note">חלה שנפלה נפסלת אחרי כמה שניות על הרצפה. נוגעים בה, בת־חן מרימה, ונשיקה (״מוואה״ למיקרופון או הכפתור) מחזירה אותה לשולחן. המיקרופון רק מקשיב לרגע הנשיקה: אין הקלטה ואין שליחת קול.</p>
+  </main>
+  <script src="sfx.js?v=1" defer></script>
+  <script src="game.js?v=6" defer></script><script src="/imperial-stream/track.js?v=7" defer></script>
+</body>
+</html>
