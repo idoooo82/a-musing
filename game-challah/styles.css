@@ -205,3 +205,9 @@ button:disabled{cursor:not-allowed;opacity:.43}
 .back-door.video-on .door-half,.back-door.video-on .door-wind{display:none}
 .back-door.zap:after{content:'';position:absolute;inset:0;z-index:999;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,#ff3d6e00 35%,#ff3d6e7a);animation:doorZap .32s ease-out forwards}
 @keyframes doorZap{from{opacity:1}to{opacity:0}}
+
+/* challot on the floor are always drawn in front of Bat-Chen, so none can hide behind her; messages sit high, clear of the floor where challot land */
+.bread-layer{z-index:8}
+.toast{top:12.5%;bottom:auto;right:3%}
+.bread.queued{filter:drop-shadow(0 0 6px #ffdfa3)}
+.bread.queued:after{content:'הבאה';position:absolute;left:50%;bottom:108%;transform:translateX(-50%);padding:1px 7px;border-radius:999px;background:#1b123bd9;color:#ffe29a;font:800 clamp(10px,2.8vw,13px)/1.4 Heebo,Arial,sans-serif;white-space:nowrap}

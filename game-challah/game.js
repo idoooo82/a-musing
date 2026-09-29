@@ -23,7 +23,8 @@
     lastFrame: performance.now(), mic: null, audio: null, analyser: null,
     micLast: 0, noiseFloor: .012, soundActive: false, lastKiss: 0, toastTimer: null,
     doorOpen: false, paused: false, carriedTableIndex: null,
-    lives: 3, best: 0, carryStart: 0, backDoorOpen: false, level: 0, charge: 0, musicOn: true
+    lives: 3, best: 0, carryStart: 0, backDoorOpen: false, level: 0, charge: 0, musicOn: true,
+    queuedBread: null, round: 0
   };
   const SUPER_AT = 5;
   // Game rules, in one place
@@ -264,9 +265,17 @@
     if (state.score === 0 && state.breads.length <= 1) setToast('החללית היטלטלה — חלה נפלה מהשולחן!');
   }
 
+  function setQueued(bread) {
+    state.queuedBread?.element.classList.remove('queued');
+    state.queuedBread = bread;
+    bread?.element.classList.add('queued');
+  }
   function chooseBread(bread) {
-    if (state.phase !== 'playing' || state.carrying || state.lifting || state.kissing || state.delivering) return;
+    if (state.phase !== 'playing' || state.paused) return;
     if (!state.breads.includes(bread) || !bread.landed) return;
+    // Bat-Chen has her hands full: the tap marks the challah she runs to next
+    if (state.carrying || state.lifting || state.kissing || state.delivering) { if (state.queuedBread !== bread) { setQueued(bread); fx('tap'); } return; }
+    if (state.queuedBread === bread) setQueued(null);
     state.breads.forEach((item) => item.element.classList.remove('selected'));
     state.targetBread = bread;
     bread.element.classList.add('selected');
@@ -292,7 +301,9 @@
     setCharacterClass('holding');
     fx('pickup');
     setInstruction('עכשיו נותנים ״מוואה״ למיקרופון.');
+    const round = state.round;
     setTimeout(() => {
+      if (round !== state.round) return;
       bread.element.remove();
       state.lifting = false;
       state.carrying = true;
@@ -305,8 +316,10 @@
   function kissChallah() {
     if (!state.carrying || state.kissing) return;
     state.kissing = true;
+    const round = state.round;
+    // a quick kiss charges the super move; the score counts only challot actually saved
     const quick = performance.now() - state.carryStart < 1600;
-    if (quick) { state.score += 1; syncHud(); popScore('נשיקת בזק! ‎+1'); setTimeout(() => fx('score', true), 350); }
+    if (quick) { addCharge(1); popScore('נשיקת בזק! ⚡'); setTimeout(() => fx('score', true), 350); }
     toggleBackDoor();
     stage.classList.add('slowmo');
     updateKissButton();
@@ -318,12 +331,14 @@
     if (!state.micKiss) fx('smooch');
     state.micKiss = false;
     setTimeout(() => {
+      if (round !== state.round) return;
       $('blessing').classList.remove('show');
       void $('blessing').offsetWidth;
       $('blessing').classList.add('show');
       fx('chime');
     }, 700);
     setTimeout(() => {
+      if (round !== state.round) return;
       stage.classList.remove('slowmo');
       heldBread.style.transition = '';
       heldBread.style.transform = '';
@@ -349,7 +364,9 @@
     heldBread.style.left = '75%';
     heldBread.style.top = '42%';
     heldBread.style.transform = 'translate(-50%,-50%) scale(.62)';
+    const round = state.round;
     setTimeout(() => {
+      if (round !== state.round) return;
       heldBread.classList.remove('visible');
       heldBread.style.transition = '';
       heldBread.style.transform = '';
@@ -365,6 +382,9 @@
       popScore('+1');
       fx('tap'); setTimeout(() => fx('score', false), 90);
       addCharge(1);
+      const next = state.queuedBread;
+      setQueued(null);
+      if (next && state.breads.includes(next)) chooseBread(next);
 
     }, 570);
   }
@@ -433,6 +453,7 @@
     stage.classList.add('super'); setTimeout(() => stage.classList.remove('super'), 1600);
     fx('superMove'); duck(.2, 1500);
     const saved = [...state.breads];
+    setQueued(null);
     if (state.targetBread) { state.targetBread = null; state.targetX = null; state.targetDepth = null; }
     state.breads = [];
     saved.forEach((bread, k) => {
@@ -459,6 +480,7 @@
   function loseBread(bread) {
     state.breads = state.breads.filter((b) => b !== bread);
     if (state.targetBread === bread) { state.targetBread = null; state.targetX = null; state.targetDepth = null; }
+    if (state.queuedBread === bread) setQueued(null);
     bread.element.classList.add('lost'); setTimeout(() => bread.element.remove(), 700);
     state.lives -= 1; syncLives(); syncHud();
     fx('lose');
@@ -469,7 +491,8 @@
     if (state.lives <= 0) endRound();
   }
   function endRound() {
-    state.phase = 'over'; state.paused = false;
+    state.phase = 'over'; state.paused = false; state.round++;
+    stage.classList.remove('slowmo');
     const best = Math.max(state.best, state.score); const record = state.score > state.best && state.score > 0; state.best = best;
     try { localStorage.setItem('challah-best', String(best)); } catch (_) {}
     $('over-score').textContent = state.score;
@@ -484,7 +507,9 @@
   }
   function restart() {
     state.breads.forEach((b) => b.element.remove());
-    Object.assign(state, {breads: [], score: 0, lives: LIVES, carrying: false, lifting: false, kissing: false, delivering: false,
+    stage.classList.remove('slowmo');
+    heldBread.style.transition = ''; heldBread.style.transform = '';
+    Object.assign(state, {breads: [], queuedBread: null, round: state.round + 1, score: 0, lives: LIVES, carrying: false, lifting: false, kissing: false, delivering: false,
       targetBread: null, targetX: null, targetDepth: null, arrivalAction: null, gameTime: 0, nextHit: 1.6, x: 50, depth: 0, level: 0, paused: false, phase: 'playing'});
     tableBreads.querySelectorAll('img').forEach((i) => i.classList.remove('fallen'));
     heldBread.classList.remove('visible');
@@ -569,7 +594,7 @@
     if (state.carrying) return kissChallah();
   }
   stage.addEventListener('pointerdown', (event) => {
-    if (state.phase !== 'playing' || state.carrying || state.lifting || state.kissing || state.delivering || state.paused) return;
+    if (state.phase !== 'playing' || state.paused) return;
     const bounds = stage.getBoundingClientRect();
     const touchX = (event.clientX - bounds.left) / bounds.width * 100;
     const touchY = (event.clientY - bounds.top) / bounds.height * 100;
