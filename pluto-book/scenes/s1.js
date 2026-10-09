@@ -153,7 +153,7 @@
   // ---------------- Pluto's acting ----------------
   // light story: his own star-plaque warms him from below (pride); when the telescope's lines of sight reach him that
   // warmth drains away and the instrument's cold light takes its place from the lower left (scrutiny).
-  const starGoldAt = n => .5 * win(n, W_STAR - .05, W_STAR + .4) * (1 - .75 * win(n, 9.8, 11.0));
+  const starGoldAt = n => .9 * win(n, W_STAR - .05, W_STAR + .4) * (1 - .6 * win(n, 9.8, 11.0));
   function plutoOpts(n) {
     const hop = pulse(n, 5.35, 5.7, 6.35, 6.8);                        // delighted, watching his visitors
     const notice = win(n, 9.98, 10.5), cool = win(n, 9.85, 11.0), fade = win(n, 10.2, 11.2);

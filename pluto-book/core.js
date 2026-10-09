@@ -96,7 +96,8 @@ function lineAt(n) {
 }
 function drawTextLine(p, n, opt = {}) {
   const r = lineAt(n); if (!r) return;
-  const { l, fade } = r; const y = opt.y || TXT_Y;
+  const { l } = r; const fade = r.fade * (opt.alpha === undefined ? 1 : opt.alpha); if (fade <= .005) return; const y = opt.y || TXT_Y;
+  const inkC = opt.ink || INK, faintC = opt.faint || [150, 128, 104];
   let size = opt.size || TEXT.size; p.save(); p.direction = 'rtl'; p.textBaseline = 'middle';
   const setF = s => p.font = `${TEXT.weight} ${s}px ${TEXT.font}`;
   setF(size); let widths = l.words.map(w => p.measureText(w.w).width), sp = p.measureText(' ').width * 1.05;
@@ -105,9 +106,10 @@ function drawTextLine(p, n, opt = {}) {
   let xr = W / 2 + total / 2; p.textAlign = 'right';
   l.words.forEach((w, i) => {
     const on = ease((n - (w.s - .08)) / .28);                 // ink settles in as the word is spoken
-    const col = w.c ? EMPH_COL[w.c] : INK;
+    const col = w.c ? (opt.emph || EMPH_COL)[w.c] : inkC;
     p.globalAlpha = fade * (TEXT.faint + (1 - TEXT.faint) * on);
-    p.fillStyle = rgba(mixc([150, 128, 104], col, on)); p.fillText(w.w, xr, y + 3 * (1 - on));
+    if (opt.shadow) { p.shadowColor = 'rgba(0,0,0,.65)'; p.shadowBlur = 10; p.shadowOffsetY = 2; }
+    p.fillStyle = rgba(mixc(faintC, col, on)); p.fillText(w.w, xr, y + 3 * (1 - on));
     xr -= widths[i] + sp;
   });
   p.restore();
@@ -117,7 +119,9 @@ function drawTextLine(p, n, opt = {}) {
 //        ill(g, n, lt), over(p, n, lt), page(p, n, lt)})
 const SCENES = [];
 function SCENE(s) { s.trans = s.trans || 'turn'; s.tdur = s.tdur || .9; s.layout = s.layout || 'frame'; if (s.text === undefined) s.text = true; SCENES.push(s); SCENES.sort((a, b) => a.start - b.start); }
-const ILL = canvas(PAGE.IW, PAGE.IH), IG = ILL.getContext('2d');
+const ILLS = 4 / 3;                                                   // illustration supersampling: the plate can fill the screen
+const ILL = canvas(Math.round(PAGE.IW * ILLS), Math.round(PAGE.IH * ILLS)), IG = ILL.getContext('2d');
+window.AMB_OFF = 0;                                                  // ambient clock offset (film time - story time) during paced pauses
 const TMP = canvas(PAGE.IW, PAGE.IH), TG = TMP.getContext('2d');
 function sceneById(id) { return SCENES.find(s => s.id === id); }
 // draw a scene's illustration (without page) into a fresh canvas - for custom transitions between pages
@@ -145,9 +149,10 @@ function plateFrame(p, s) {
   p.restore();
 }
 function composeFrame(p, s, n) {
-  IG.setTransform(1, 0, 0, 1, 0, 0); IG.globalAlpha = 1; IG.globalCompositeOperation = 'source-over'; IG.clearRect(0, 0, PAGE.IW, PAGE.IH);
+  IG.setTransform(1, 0, 0, 1, 0, 0); IG.globalAlpha = 1; IG.globalCompositeOperation = 'source-over'; IG.filter = 'none'; IG.clearRect(0, 0, ILL.width, ILL.height);
+  IG.setTransform(ILLS, 0, 0, ILLS, 0, 0);
   IG.save(); s.ill(IG, n, n - s.start); IG.restore();
-  p.drawImage(ILL, PAGE.IX, PAGE.IY);
+  p.drawImage(ILL, PAGE.IX, PAGE.IY, PAGE.IW, PAGE.IH);
   // printed-on-paper feel: grain + a whisper of inner shadow
   p.save(); p.globalCompositeOperation = 'soft-light'; p.globalAlpha = .45; p.drawImage(GRAIN, PAGE.IX, PAGE.IY, PAGE.IW, PAGE.IH, PAGE.IX, PAGE.IY, PAGE.IW, PAGE.IH); p.restore();
   p.save(); p.beginPath(); p.rect(PAGE.IX, PAGE.IY, PAGE.IW, PAGE.IH); p.clip();
@@ -155,15 +160,42 @@ function composeFrame(p, s, n) {
   plateFrame(p, s);
 }
 const MAIN = document.getElementById('c'), P = MAIN.getContext('2d');
+// book camera: 0 = we look at the printed page, 1 = we have dived into the plate (it fills the screen)
+const BOOKCAM = {
+  s1: [[3.75, 0], [4.6, 0], [5.5, 1], [6.3, 1], [7.0, 0]],
+  s2: [[11.3, 0], [11.9, 1], [15.0, 1], [15.45, 0]],
+  s3: [[15.52, 0], [17.0, 0], [17.8, 1], [24.2, 1], [24.85, 0]],
+  s4: [[25.0, 0], [25.9, 0], [27.0, 1], [35.6, 1], [36.25, 0]],
+  s5: [[36.3, 0], [37.0, 0], [38.2, 1], [43.8, 1], [44.6, 0]],
+  s6: [[46.25, 0], [47.0, 0], [48.0, 1], [53.7, 1], [54.4, 0]],
+  s7: [[54.45, 0], [57.3, 0], [58.3, 1], [61.75, 1], [62.35, 0]],
+};
+const ZFULL = 4 / 3 * 1.012;
+function bookZoom(s, n) {
+  const k = BOOKCAM[s.id]; if (!k) return 0;
+  if (n <= k[0][0]) return k[0][1];
+  for (let i = 0; i < k.length - 1; i++) if (n < k[i + 1][0]) return lerp(k[i][1], k[i + 1][1], ease((n - k[i][0]) / (k[i + 1][0] - k[i][0])));
+  return k[k.length - 1][1];
+}
+function drawSubtitle(p, n, a) {
+  if (a <= .01 || !lineAt(n)) return;
+  p.save(); const gr = p.createLinearGradient(0, H - 250, 0, H); gr.addColorStop(0, 'rgba(4,6,16,0)'); gr.addColorStop(1, `rgba(4,6,16,${.6 * a})`); p.fillStyle = gr; p.fillRect(0, H - 250, W, 250); p.restore();
+  drawTextLine(p, n, { y: H - 82, size: 50, alpha: a, ink: [250, 241, 224], faint: [190, 180, 160], emph: { gold: [246, 206, 120], warm: [255, 190, 170] }, shadow: true });
+}
 window.renderPage = function (k, n) {
   const s = SCENES[k]; P.setTransform(1, 0, 0, 1, 0, 0); P.globalAlpha = 1; P.globalCompositeOperation = 'source-over';
   P.filter = 'none';
   if (s.layout === 'full') { s.page(P, n, n - s.start); }
   else {
+    const z = bookZoom(s, n), Z = 1 + z * (ZFULL - 1), cxp = PAGE.IX + PAGE.IW / 2, cyp = PAGE.IY + PAGE.IH / 2;
+    P.fillStyle = '#000'; P.fillRect(0, 0, W, H);
+    P.setTransform(Z, 0, 0, Z, cxp - cxp * Z, (cyp + (H / 2 - cyp) * z) - cyp * Z);
     P.drawImage(PAPER, 0, 0);
     composeFrame(P, s, n);
-    if (s.text) drawTextLine(P, n, s.textOpt || {});
+    if (s.text) drawTextLine(P, n, Object.assign({}, s.textOpt || {}, { alpha: 1 - ease(z * 1.6) }));
     if (s.over) { P.save(); s.over(P, n, n - s.start); P.restore(); }
+    P.setTransform(1, 0, 0, 1, 0, 0);
+    if (s.text) drawSubtitle(P, n, ease((z - .45) / .55));
   }
   return true;
 };

@@ -55,7 +55,7 @@ void main(){
   const DEF = { t: 0, cam: [0, 0], zoom: 1, warm: 0, cold: 0, gray: 0, bright: 1, neb: .5, galx: .8, swirl: 0, warp: 0, wpr: .35, gold: 0, hue: 0, red: 0, swc: [0, 0], wpc: [0, 0], gpos: [-.55, -.28] };
   // draw the living sky into rect (x,y,w,h) of context g.  o: see DEF.  cam in screen-height units.
   function draw(g, o = {}, x = 0, y = 0, w = PAGE.IW, h = PAGE.IH) {
-    const v = Object.assign({}, DEF, o);
+    const v = Object.assign({}, DEF, o); v.t = (v.t || 0) + (window.AMB_OFF || 0);
     gl.uniform2f(loc('res'), SW, SH);
     for (const k in v) { const val = v[k]; if (Array.isArray(val)) gl.uniform2f(loc(k), val[0], val[1]); else gl.uniform1f(loc(k), val); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -75,7 +75,7 @@ const STARS = (() => {
   }
   // draw into rect of size (w,h). o: {t, cam:[x,y], zoom, alpha, swirl, swc:[x,y], spin (trail angle, rad), dim}
   function draw(g, o = {}, w = PAGE.IW, h = PAGE.IH) {
-    const t = o.t || 0, cam = o.cam || [0, 0], zoom = o.zoom || 1, A = o.alpha === undefined ? 1 : o.alpha;
+    const t = (o.t || 0) + (window.AMB_OFF || 0), cam = o.cam || [0, 0], zoom = o.zoom || 1, A = o.alpha === undefined ? 1 : o.alpha;
     const sw = o.swirl || 0, swc = o.swc || [0, 0], trail = o.trail || 0;
     g.save(); g.globalCompositeOperation = 'lighter';
     for (const s of list) {
@@ -117,7 +117,7 @@ const DUST = (() => {
   const rnd = mulberry(5), list = [];
   for (let i = 0; i < 140; i++) list.push({ x: rnd(), y: rnd(), z: .3 + rnd() * .7, ph: rnd() * 6.28, c: rnd() < .5 ? [230, 226, 210] : [255, 226, 180] });
   function draw(g, o = {}, w = PAGE.IW, h = PAGE.IH) {
-    const t = o.t || 0, A = o.alpha === undefined ? 1 : o.alpha, vx = o.vx === undefined ? .012 : o.vx, vy = o.vy === undefined ? -.006 : o.vy, cam = o.cam || [0, 0];
+    const t = (o.t || 0) + (window.AMB_OFF || 0), A = o.alpha === undefined ? 1 : o.alpha, vx = o.vx === undefined ? .012 : o.vx, vy = o.vy === undefined ? -.006 : o.vy, cam = o.cam || [0, 0];
     g.save(); g.globalCompositeOperation = 'lighter';
     for (const d of list) {
       let x = ((d.x + t * vx * d.z - cam[0] * .3 * d.z) % 1 + 1) % 1, y = ((d.y + t * vy * d.z + .012 * Math.sin(t * .7 + d.ph) - cam[1] * .3 * d.z) % 1 + 1) % 1;

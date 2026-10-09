@@ -32,8 +32,8 @@ class Engine:
         buf = self.pg.screenshot(type='jpeg', quality=95)
         return cv2.imdecode(np.frombuffer(buf, np.uint8), cv2.IMREAD_COLOR)
 
-    def page(self, k, n):
-        self.pg.evaluate(f'renderPage({k},{n})')
+    def page(self, k, n, amb=0.0):
+        self.pg.evaluate(f'AMB_OFF={amb};renderPage({k},{n})')
         if self.errors: raise RuntimeError(' | '.join(self.errors))
         return self._grab()
 

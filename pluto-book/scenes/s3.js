@@ -246,7 +246,7 @@
   }
   function plaque(g, n) {
     const pride = 1 - win(n, 15.9, 16.3), dimK = 1 - .35 * cold(n);
-    const gold = .32 * pride + .12 * bump(n, 17.06, .5) * 0, glow = .55 * pride + .35 * bump(n, 17.04, .44);
+    const gold = .8 * pride + .12 * bump(n, 17.06, .5) * 0, glow = .55 * pride + .35 * bump(n, 17.04, .44);
     g.save(); g.globalAlpha = dimK + (1 - dimK) * .0;
     drawPlaque(g, PQ[0], PQ[1], PQW, { lat: 'PLVTO', he: 'פלוטו' }, { persp: PQS, gold, glow });
     g.restore();

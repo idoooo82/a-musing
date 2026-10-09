@@ -81,6 +81,7 @@ function buildTex(kind) {
 const _scr = canvas(8, 8), _sx = _scr.getContext('2d');
 function drawBody(g, x, y, r, o = {}) {
   const kind = o.kind || 'pluto'; const tex = buildTex(kind);
+  const T0 = g.getTransform(), SCL = clamp(Math.hypot(T0.a, T0.b), 1, 2.2), r0 = r; r = r * SCL;   // paint at device resolution
   const R = Math.max(2, Math.ceil(r)), S = 2 * R + 6;
   if (_scr.width < S || _scr.height < S) { _scr.width = Math.max(S, _scr.width); _scr.height = Math.max(S, _scr.height); }
   _sx.setTransform(1, 0, 0, 1, 0, 0); _sx.clearRect(0, 0, _scr.width, _scr.height);
@@ -146,15 +147,15 @@ function drawBody(g, x, y, r, o = {}) {
   if (o.decal) o.decal(_sx, cx, cy, r);                 // scene hook: draw on the body surface (stamp ink, cracks ...)
   const sq = o.squash || [1, 1];
   g.save(); g.globalAlpha *= (o.alpha === undefined ? 1 : o.alpha); g.translate(x, y); if (o.rot) g.rotate(o.rot); g.scale(sq[0], sq[1]);
-  if (o.ring) drawRing(g, r, o.ring, 'back');
-  g.drawImage(_scr, 0, 0, S, S, -cx, -cy, S, S);
-  if (o.ring) drawRing(g, r, o.ring, 'front');
+  if (o.ring) drawRing(g, r0, o.ring, 'back');
+  g.save(); g.scale(1 / SCL, 1 / SCL); g.drawImage(_scr, 0, 0, S, S, -cx, -cy, S, S); g.restore();
+  if (o.ring) drawRing(g, r0, o.ring, 'front');
   g.restore();
   // thin atmosphere (Pluto's real hazy blue layer) + inner warmth / gold halo - outside the disc only
   if (o.atm || glow || gold) {
     g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); if (o.rot) g.rotate(o.rot); g.scale(sq[0], sq[1]);
-    if (o.atm) { const a = o.atm, RR = r * 1.16; const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(120,170,240,0)'); gr.addColorStop(.83, 'rgba(120,170,240,0)'); gr.addColorStop(.87, `rgba(150,195,250,${.20 * a})`); gr.addColorStop(.92, `rgba(120,170,240,${.06 * a})`); gr.addColorStop(1, 'rgba(120,170,240,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
-    const ga = glow * .25 + gold * .5; if (ga > 0) { const RR = r * (1.5 + gold * .6); const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(r / RR * .97, 'rgba(255,200,120,0)'); gr.addColorStop(r / RR * 1.01, `rgba(255,${196 + 30 * gold | 0},${120 - 40 * gold | 0},${.38 * ga})`); gr.addColorStop(1, 'rgba(255,190,120,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
+    if (o.atm) { const a = o.atm, RR = r0 * 1.16; const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(120,170,240,0)'); gr.addColorStop(.83, 'rgba(120,170,240,0)'); gr.addColorStop(.87, `rgba(150,195,250,${.20 * a})`); gr.addColorStop(.92, `rgba(120,170,240,${.06 * a})`); gr.addColorStop(1, 'rgba(120,170,240,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
+    const ga = glow * .25 + gold * .5; if (ga > 0) { const RR = r0 * (1.5 + gold * .6); const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(r0 / RR * .97, 'rgba(255,200,120,0)'); gr.addColorStop(r0 / RR * 1.01, `rgba(255,${196 + 30 * gold | 0},${120 - 40 * gold | 0},${.38 * ga})`); gr.addColorStop(1, 'rgba(255,190,120,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
     g.restore();
   }
 }

@@ -3,8 +3,9 @@ usage: python3 render.py FRAME_A FRAME_B out.mp4      (frames at 24 fps, film ti
 import sys, os, math, subprocess, time, numpy as np, cv2
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from engine import Engine
-FPS, LEAD, END_N = 24, 2.0, 66.0
-DUR = LEAD + END_N
+import timemap
+FPS, LEAD, END_N = 24, timemap.LEAD, timemap.END_N
+DUR = timemap.DUR
 W, H = 1920, 1080
 
 def ease(u): u = min(max(u, 0), 1); return u * u * (3 - 2 * u)
@@ -26,12 +27,12 @@ def page_turn(old, new, u, back):
 
 _cache = {}
 def film_frame(E, F):
-    n = F - LEAD; tl = E.timeline
+    n = timemap.F2n(F); amb = (F - LEAD) - n; tl = E.timeline
     k = 0
     for i, s in enumerate(tl):
         if s['start'] <= n: k = i
     s = tl[k]
-    fr = E.page(k, n).astype(np.float32)
+    fr = E.page(k, n, amb).astype(np.float32)
     if k > 0 and n < s['start'] + s['tdur']:
         u = (n - s['start']) / s['tdur']
         if s['trans'] == 'turn':
@@ -40,7 +41,7 @@ def film_frame(E, F):
             if 'back' not in _cache: _cache['back'] = E.blank().astype(np.float32) * .9
             fr = page_turn(_cache[key], fr, u, _cache['back'])
         elif s['trans'] == 'fade':
-            fr = E.page(k - 1, n).astype(np.float32) * (1 - ease(u)) + fr * ease(u)
+            fr = E.page(k - 1, n, amb).astype(np.float32) * (1 - ease(u)) + fr * ease(u)
     if F < .8: fr *= F / .8
     if F > DUR - 1.8: fr *= max(0, (DUR - F) / 1.8)
     return np.clip(fr, 0, 255).astype(np.uint8)

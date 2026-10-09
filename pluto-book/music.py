@@ -3,9 +3,10 @@ Writes audio/music.wav (music+sfx, stereo) and audio/mix.wav (with narration, du
 import numpy as np, subprocess, json, os
 from scipy import signal as ss
 D = os.path.dirname(os.path.abspath(__file__))
-SR = 48000; LEAD = 2.0; DUR = 68.0; N = int(DUR * SR)
+import timemap
+SR = 48000; LEAD = timemap.LEAD; DUR = timemap.DUR; N = int(DUR * SR)
 rng = np.random.default_rng(9)
-F = lambda n: n + LEAD                          # narration time -> film time
+F = timemap.n2F                                 # narration time -> film time (with paced pauses)
 mus = np.zeros((N, 2)); sfx = np.zeros((N, 2))
 
 def m2f(m): return 440.0 * 2 ** ((m - 69) / 12)
@@ -24,19 +25,18 @@ def env(n, a, r, hold=None):
 def tt(d): return np.arange(int(d * SR)) / SR
 
 # ---------------- instruments ----------------
-def harp(f, dur=2.4, amp=.18, bright=1.0):
+def harp(f, dur=3.0, amp=.18, bright=1.0):          # soft "glass" pluck with a slow bloom (space, not nursery)
     t = tt(dur); x = np.zeros_like(t)
-    for k in range(1, 8):
-        x += np.sin(2 * np.pi * f * k * (1 + .0007 * k * k) * t + rng.random()) / k ** (1.25 / bright) * np.exp(-t * (1.6 + .9 * k))
-    return x * amp * np.minimum(t / .004, 1)
-def musicbox(f, dur=2.2, amp=.12, detune=0.0):
-    t = tt(dur); f = f * (1 + detune)
-    x = np.sin(2 * np.pi * f * t) * np.exp(-t * 2.2) + .45 * np.sin(2 * np.pi * f * 3.0 * t) * np.exp(-t * 5) + .22 * np.sin(2 * np.pi * f * 5.04 * t) * np.exp(-t * 9) + .12 * np.sin(2 * np.pi * f * 7.9 * t) * np.exp(-t * 14)
-    return x * amp * np.minimum(t / .002, 1)
-def celesta(f, dur=2.6, amp=.12):
-    t = tt(dur)
-    x = np.sin(2 * np.pi * f * t) * np.exp(-t * 1.6) + .3 * np.sin(2 * np.pi * f * 4 * t) * np.exp(-t * 4) + .1 * np.sin(2 * np.pi * f * 10.2 * t) * np.exp(-t * 9)
-    return x * amp * np.minimum(t / .003, 1)
+    for k, (m, dec) in enumerate(((1, 1.1), (2.0, 1.8), (3.01, 2.6), (4.2, 3.5))):
+        x += np.sin(2 * np.pi * f * m * t + rng.random()) * np.exp(-t * dec) / (k + 1) ** (1.4 / bright)
+    return x * amp * .8 * np.minimum(t / .03, 1)
+def musicbox(f, dur=3.0, amp=.12, detune=0.0):   # crystalline synth bell, slow attack, long tail
+    t = tt(dur); f = f * (1 + detune); v = 1 + .004 * np.sin(2 * np.pi * 4.5 * t)
+    ph = 2 * np.pi * np.cumsum(f * v) / SR
+    x = np.sin(ph) * np.exp(-t * 1.0) + .25 * np.sin(2.0 * ph) * np.exp(-t * 2.0) + .08 * np.sin(4.0 * ph) * np.exp(-t * 3.5)
+    return x * amp * .8 * np.minimum(t / .06, 1)
+def celesta(f, dur=3.0, amp=.12):
+    return musicbox(f, dur, amp * .9)
 def pad(fs, dur, amp=.05, a=1.5, r=2.0, bright=.5, det=.004):
     t = tt(dur); x = np.zeros_like(t)
     for f in fs:
@@ -57,11 +57,10 @@ def strings(fs, dur, amp=.05, a=2.0, r=2.5):
 def bass(f, dur, amp=.10):
     t = tt(dur); x = np.sin(2 * np.pi * f * t) + .25 * np.sin(4 * np.pi * f * t)
     return x * env(len(t), .04, .6) * amp * np.exp(-t * .4)
-def bassoon(f, dur, amp=.07):             # the pompous astronomer's little motif
-    t = tt(dur); vib = 1 + .006 * np.sin(2 * np.pi * 5 * t) * np.minimum(t / .3, 1)
-    ph = 2 * np.pi * np.cumsum(f * vib) / SR; x = sum(np.sin(k * ph) / k ** .9 * (1 if k % 2 else .55) for k in range(1, 12))
-    b, a = ss.butter(2, [300 / (SR / 2), 1800 / (SR / 2)], 'band'); x = ss.lfilter(b, a, x)
-    return x * env(len(t), .04, .12) * amp
+def bassoon(f, dur, amp=.07):             # the astronomer: a low, cold synth-brass swell
+    t = tt(dur + .6); ph = 2 * np.pi * np.cumsum(f * (1 + .002 * np.sin(2 * np.pi * .7 * t))) / SR
+    x = sum(np.sin(k * ph) / k for k in range(1, 9)); b_, a_ = ss.butter(2, 900 / (SR / 2)); x = ss.lfilter(b_, a_, x)
+    return x * env(len(t), .25, .5) * amp * .9
 def noise(d, lo, hi, order=2):
     x = rng.standard_normal(int(d * SR)); b, a = ss.butter(order, [lo / (SR / 2), min(hi, SR / 2 - 100) / (SR / 2)], 'band'); return ss.lfilter(b, a, x)
 
@@ -71,9 +70,9 @@ def page_turn(dur=.75):
     cr = noise(dur, 1800, 6000) * (rng.random(len(t)) < .003) * 2
     return (x + cr * np.exp(-((t - dur * .55) / (dur * .25)) ** 2)) * .22
 def thump(f0=70, d=1.6, amp=.9):
-    t = tt(d); x = np.sin(2 * np.pi * np.cumsum(f0 * np.exp(-t * 3) + 34) / SR) * np.exp(-t * 3.2)
-    x += noise(d, 120, 1800) * np.exp(-t * 22) * .6
-    return x * amp
+    t = tt(d); x = .35 * np.sin(2 * np.pi * np.cumsum(f0 * 2.2 * np.exp(-t * 6) + 90) / SR) * np.exp(-t * 9)
+    x += noise(d, 300, 3500) * np.exp(-t * 30) * .7
+    return x * amp * .55
 def tick(f=3200, amp=.12):
     t = tt(.05); return np.sin(2 * np.pi * f * t) * np.exp(-t * 260) * amp + noise(.05, 2000, 9000) * np.exp(-t * 300) * amp * .5
 def whoosh(d, f0, f1, amp=.25):
@@ -119,14 +118,14 @@ melody([(78, 1), (81, 1), (83, 1), (81, 1.5), (78, .5), (76, 2)], 0.6, B, amp=.1
 put(mus, celesta(m2f(86), 3, .10), F(0.5), .3); put(mus, celesta(m2f(93), 3, .05), F(0.5) + .02, -.3)      # "פלוטו" chime
 put(sfx, page_turn(), F(3.75) + .05, -.2)
 # --- 5.75..13.3 the avenue: wonder; the astronomer interrupts
-chord(D_, 5.4, 2.5, .05, .08); arp(D_, 5.6, 2.4, .40, .085); chord(Bm, 7.9, 1.0, .045, .07)
+chord(D_, F(3.4), 2.5, .05, .08); arp(D_, F(3.6), 2.4, .55, .07); chord(Bm, F(5.9), 1.0, .045, .07)
 for k in range(6): put(sfx, celesta(m2f(98 + (k % 3) * 2), .8, .03), F(5.55) + k * .16, -.5 + k * .1)     # comet visitors hop
 # the astronomer: music stops, a pompous little bassoon figure
-for m, t0, d in ((50, F(6.68), .28), (47, F(6.98), .28), (45, F(7.26), .55)): put(mus, bassoon(m2f(m), d + .15), t0, .3)
+for m, t0 in ((74, F(6.68)), (79, F(6.98)), (78, F(7.26)), (83, F(7.6))): put(mus, musicbox(m2f(m), 2.4, .07), t0, .3)
 put(sfx, tick(5200, .06), F(8.66), .4)                                                                   # "פירור" tiny pip
-put(mus, bassoon(m2f(57), .25), F(8.18), .3)
-chord([50, 57, 62, 64], F(9.0), 4.4, .045, .06, 2.0, 2.0)                                                  # mysterious open fifth (the hole)
-put(sfx, whoosh(3.0, 120, 600, .06), F(9.2), -.6)
+put(mus, musicbox(m2f(90), 1.6, .04), F(8.18), .3)
+chord([62, 66, 69, 76], F(9.0), 4.4, .04, 0, 2.0, 2.0)                                                      # soft, curious (the hole)
+put(sfx, whoosh(3.0, 600, 2400, .04), F(9.2), -.6)
 # --- 13.3..17.5 the telescope
 put(sfx, whoosh(.6, 400, 3000, .10), F(11.30), .3); put(sfx, tick(1800, .10), F(11.75))
 for i, w in enumerate([11.56, 11.94, 12.30, 12.62]): put(sfx, tick(2600 - i * 150, .10), F(w), .2)        # ratchet clicks on each word
@@ -135,8 +134,8 @@ put(mus, pad([m2f(m) for m in (57, 64, 69, 71)], 4.0, .04, .8, 1.5), F(11.4), 0)
 x = tt(1.9); f = m2f(76) * (1 + .06 * np.sin(2 * np.pi * 1.6 * x)) * (1 - .12 * x / 1.9); put(mus, np.sin(2 * np.pi * np.cumsum(f) / SR) * env(len(x), .3, .6) * .06, F(13.74), -.2)   # funhouse theremin "crooked"
 # --- 17.5..27 the verdict
 put(sfx, page_turn(.4), F(15.52), -.2)
-put(sfx, thump(68, 1.8, .85), F(15.86)); put(mus, strings([m2f(m) for m in (50, 57, 62, 65)], 3.0, .06, .05, 2.0), F(15.9), 0)
-put(mus, bassoon(m2f(57), .22), F(16.50), .4); put(mus, bassoon(m2f(62), .35), F(16.74), .4)          # "מכובדי" pompous
+put(sfx, thump(68, 1.8, .85), F(15.86)); put(mus, strings([m2f(m) for m in (62, 65, 69, 74)], 3.0, .045, .3, 2.0), F(15.9), 0)
+put(mus, musicbox(m2f(81), 1.4, .05), F(16.50), .4); put(mus, musicbox(m2f(86), 1.6, .05), F(16.74), .4)          # "מכובדי" pompous
 scratch(F(17.54)); put(sfx, thump(90, 1.0, .45), F(18.42)); put(sfx, noise(.25, 1500, 7000) * np.exp(-tt(.25) * 18) * .15, F(18.46), .2)   # crack
 pizz = [(62, 19.18), (65, 19.44), (69, 19.88), (65, 20.48), (62, 20.74), (58, 21.04), (57, 21.46), (57, 21.86)]
 for m, w in pizz: put(mus, harp(m2f(m), .9, .10, .6), F(w), -.2)
@@ -150,7 +149,7 @@ put(sfx, page_turn(), F(25.0), -.2)
 chord(Dm, F(25.7), 3.0, .05, .07, 1.5, 2); chord(Bb, F(28.4), 2.2, .05, .07); chord(Gm, F(30.6), 2.4, .05, .07); chord(A7, F(33.0), 3.0, .05, .07)
 melody([(74, 1.5), (72, .5), (70, 1), (69, 2)], F(26.0), B, amp=.07, detune=.006)                       # lonely, slightly out of tune
 ice(F(28.6), 2.0, 14, .045); put(sfx, noise(1.0, 400, 2500) * np.sin(np.pi * tt(1.0)) * .05, F(29.3), 0)   # thin air
-put(sfx, whoosh(1.2, 2500, 300, .10), F(30.9), .6); honk(F(31.35))                                       # meteor pass + tiny clown honk
+put(sfx, whoosh(1.2, 2500, 300, .10), F(30.9), .6)                                       # meteor pass + tiny clown honk
 put(sfx, noise(.6, 2000, 8000) * (rng.random(int(.6 * SR)) < .01) * .5, F(33.4), .1)                    # ice cracks
 put(sfx, whoosh(1.4, 200, 1800, .14), F(34.95), -.4); put(sfx, whoosh(1.2, 1800, 200, .10), F(35.6), .4)  # spin
 # --- 38.3..48.4 calm -> inner strength -> comet
@@ -183,6 +182,14 @@ put(sfx, page_turn(.9), F(62.4), -.2)
 melody([(81, 1), (78, 1), (76, 1), (74, 3)], F(62.9), B * 1.15, amp=.09)
 chord(D_, F(63.2), 3.5, .04, .06, 1.5, 2.5); put(mus, celesta(m2f(93), 2, .05), F(63.6), .4)
 
+# ---------------- continuous space bed ----------------
+tb = np.arange(N) / SR
+mood = np.interp(tb, [0, F(15.5), F(16), F(36.3), F(44.3), F(54), F(60.4), DUR], [1, 1, .55, .55, .85, 1, 1.15, 1])
+drone = (np.sin(2 * np.pi * m2f(57) * tb) * .3 + np.sin(2 * np.pi * m2f(62) * tb + 1) * .3 + np.sin(2 * np.pi * m2f(69) * tb * 1.002) * .2) * (.8 + .2 * np.sin(2 * np.pi * .05 * tb))
+air = rng.standard_normal(N); b_, a_ = ss.butter(2, [2500 / (SR / 2), 9000 / (SR / 2)], 'band'); air = ss.lfilter(b_, a_, air) * (.5 + .5 * np.sin(2 * np.pi * .07 * tb + 2)) * .05
+shim = sum(np.sin(2 * np.pi * m2f(m) * tb + i) * (.5 + .5 * np.sin(2 * np.pi * (.031 + .013 * i) * tb + i * 2)) for i, m in enumerate((81, 86, 88, 93))) * .015
+bed = (drone * .05 + air + shim * mood) * np.interp(tb, [0, 2, DUR - 3, DUR], [0, 1, 1, 0])
+mus[:, 0] += bed; mus[:, 1] += np.roll(bed, 480)
 # ---------------- reverb, mix ----------------
 def reverb(x, sec=2.8, wet=.35):
     n = int(sec * SR); out = np.zeros_like(x)
@@ -190,15 +197,15 @@ def reverb(x, sec=2.8, wet=.35):
         ir = rng.standard_normal(n) * np.exp(-np.arange(n) / SR * 3.2 / sec * 2.2); b, a = ss.butter(1, 5000 / (SR / 2)); ir = ss.lfilter(b, a, ir); ir /= np.sqrt((ir ** 2).sum())
         out[:, ch] = ss.fftconvolve(x[:, ch], ir)[:len(x)]
     return x * (1 - wet) + out * wet * 1.6
-mus = reverb(mus, 3.2, .42); sfx = reverb(sfx, 1.6, .22)
+mus = reverb(mus, 5.0, .55); sfx = reverb(sfx, 2.2, .28)
 music = mus / (np.abs(mus).max() + 1e-9) * .8 + sfx / (np.abs(sfx).max() + 1e-9) * .55
-r = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-i', D + '/audio/narration.mp3', '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
+r = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-i', D + '/audio/narration_paced.wav', '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
 v = np.frombuffer(r.stdout, np.float32).astype(float); V = np.zeros(N); i0 = int(LEAD * SR); V[i0:i0 + len(v)] = v[:N - i0]
 from scipy.ndimage import uniform_filter1d as U1, maximum_filter1d as MX
 e = np.minimum(U1(np.abs(V), int(.25 * SR)) / .04, 1); e = U1(MX(e, int(.5 * SR)), int(.35 * SR))
 duck = (1 - .5 * e)[:, None]
 fade = np.ones(N); fade[:int(.8 * SR)] = np.linspace(0, 1, int(.8 * SR)); fade[-int(2.2 * SR):] = np.linspace(1, 0, int(2.2 * SR))
-bg = music * duck * .72
+bg = music * duck * .58
 mix = (np.stack([V, V], 1) / (np.abs(V).max() + 1e-9) * .85 + bg) * fade[:, None]
 mix = np.tanh(mix * 1.05) / np.tanh(1.05); mix /= np.abs(mix).max() / .95
 def wav(path, x):
