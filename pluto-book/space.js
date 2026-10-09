@@ -60,6 +60,7 @@ void main(){
     for (const k in v) { const val = v[k]; if (Array.isArray(val)) gl.uniform2f(loc(k), val[0], val[1]); else gl.uniform1f(loc(k), val); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     g.save(); g.imageSmoothingQuality = 'high'; g.drawImage(cv, x, y, w, h); g.restore();
+    if (typeof DEEP !== 'undefined' && !o.noDeep) DEEP.draw(g, v, x, y, w, h);
   }
   return { draw, SW, SH };
 })();
@@ -77,6 +78,7 @@ const STARS = (() => {
   function draw(g, o = {}, w = PAGE.IW, h = PAGE.IH) {
     const t = (o.t || 0) + (window.AMB_OFF || 0), cam = o.cam || [0, 0], zoom = o.zoom || 1, A = o.alpha === undefined ? 1 : o.alpha;
     const sw = o.swirl || 0, swc = o.swc || [0, 0], trail = o.trail || 0;
+    if (!trail && typeof DEEP !== 'undefined' && !o.force) return;            // the 3D layer provides the stars
     g.save(); g.globalCompositeOperation = 'lighter';
     for (const s of list) {
       const zf = 1 + (zoom - 1) * s.z;

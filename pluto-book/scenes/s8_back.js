@@ -17,7 +17,6 @@ SCENE({
       drawPluto(g, 320, 330 + 5 * Math.sin(t * 1.1), 150, { gold: 1, glow: .9, spin: .05 * Math.sin(t * .6), light: [-.6, -.55], face: { smile: .9, wink: Math.min(1, wink * 1.4) } });
     });
     foilText(p, 'סוף', 960, 808, 140, { weight: 900, glow: .3 + .2 * Math.sin(t * 1.5), sheen: (n - 62.9) / 1.2 });
-    foilText(p, 'קטן, אבל כולו זהב', 960, 912, 54, { weight: 500, fill: '#f1dfb6', glow: .2 });
     p.save(); p.font = '600 15px Cinzel'; p.letterSpacing = '7px'; p.fillStyle = rgba(GOLD_L, .85); p.textAlign = 'center'; p.direction = 'ltr'; p.fillText('FINIS', 960, 980); p.restore();
     DUST.draw(p, { t, alpha: .5 }, W, H);
   }

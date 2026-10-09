@@ -188,12 +188,14 @@ window.renderPage = function (k, n) {
   if (s.layout === 'full') { s.page(P, n, n - s.start); }
   else {
     const z = bookZoom(s, n), Z = 1 + z * (ZFULL - 1), cxp = PAGE.IX + PAGE.IW / 2, cyp = PAGE.IY + PAGE.IH / 2;
+    window.BOOKZ = z; window._BOOKZ_PREV = bookZoom(s, n - .05);
     P.fillStyle = '#000'; P.fillRect(0, 0, W, H);
     P.setTransform(Z, 0, 0, Z, cxp - cxp * Z, (cyp + (H / 2 - cyp) * z) - cyp * Z);
     P.drawImage(PAPER, 0, 0);
     composeFrame(P, s, n);
     if (s.text) drawTextLine(P, n, Object.assign({}, s.textOpt || {}, { alpha: 1 - ease(z * 1.6) }));
     if (s.over) { P.save(); s.over(P, n, n - s.start); P.restore(); }
+    if (typeof DEEP !== 'undefined' && s.near !== false) DEEP.near(P, n + (window.AMB_OFF || 0), 1);
     P.setTransform(1, 0, 0, 1, 0, 0);
     if (s.text) drawSubtitle(P, n, ease((z - .45) / .55));
   }

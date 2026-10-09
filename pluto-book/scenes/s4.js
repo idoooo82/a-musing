@@ -187,6 +187,7 @@
     return out;
   })();
   function cracksInto(g2, cx, cy, r, sp, n, mode) {
+    return;                                                                // cracks removed (client)
     const T0 = W_HURT - .06; if (n < T0) return;
     const lw = Math.max(.6, r / 240);
     for (const c of CRACKS) {
