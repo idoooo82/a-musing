@@ -149,7 +149,7 @@ put(sfx, page_turn(), F(25.0), -.2)
 chord(Dm, F(25.7), 3.0, .05, .07, 1.5, 2); chord(Bb, F(28.4), 2.2, .05, .07); chord(Gm, F(30.6), 2.4, .05, .07); chord(A7, F(33.0), 3.0, .05, .07)
 melody([(74, 1.5), (72, .5), (70, 1), (69, 2)], F(26.0), B, amp=.07, detune=.006)                       # lonely, slightly out of tune
 ice(F(28.6), 2.0, 14, .045); put(sfx, noise(1.0, 400, 2500) * np.sin(np.pi * tt(1.0)) * .05, F(29.3), 0)   # thin air
-put(sfx, whoosh(1.2, 2500, 300, .10), F(30.9), .6)                                       # meteor pass + tiny clown honk
+put(sfx, whoosh(.9, 3000, 500, .12), F(30.95), .6); put(sfx, thump(80, 1.0, .5), F(31.82), .1); put(sfx, noise(.6, 300, 2500) * np.exp(-tt(.6) * 7) * .15, F(31.84), .1)   # red rock lands                                       # meteor pass + tiny clown honk
 put(sfx, noise(.6, 2000, 8000) * (rng.random(int(.6 * SR)) < .01) * .5, F(33.4), .1)                    # ice cracks
 put(sfx, whoosh(1.4, 200, 1800, .14), F(34.95), -.4); put(sfx, whoosh(1.2, 1800, 200, .10), F(35.6), .4)  # spin
 # --- 38.3..48.4 calm -> inner strength -> comet
@@ -199,11 +199,14 @@ def reverb(x, sec=2.8, wet=.35):
     return x * (1 - wet) + out * wet * 1.6
 mus = reverb(mus, 5.0, .55); sfx = reverb(sfx, 2.2, .28)
 music = mus / (np.abs(mus).max() + 1e-9) * .8 + sfx / (np.abs(sfx).max() + 1e-9) * .55
-r = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-i', D + '/audio/narration_paced.wav', '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
+r = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-i', D + '/audio/narration_proc.wav', '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
 v = np.frombuffer(r.stdout, np.float32).astype(float); V = np.zeros(N); i0 = int(LEAD * SR); V[i0:i0 + len(v)] = v[:N - i0]
 from scipy.ndimage import uniform_filter1d as U1, maximum_filter1d as MX
 e = np.minimum(U1(np.abs(V), int(.25 * SR)) / .04, 1); e = U1(MX(e, int(.5 * SR)), int(.35 * SR))
-duck = (1 - .5 * e)[:, None]
+duck = (1 - .6 * e)[:, None]
+# carve the voice's band out of the music while he speaks (so the words sit on top)
+bv, av = ss.butter(2, [900 / (SR / 2), 4500 / (SR / 2)], 'band'); vband = ss.filtfilt(bv, av, music, axis=0)
+music = music - vband * (.75 * e)[:, None]
 fade = np.ones(N); fade[:int(.8 * SR)] = np.linspace(0, 1, int(.8 * SR)); fade[-int(2.2 * SR):] = np.linspace(1, 0, int(2.2 * SR))
 bg = music * duck * .58
 mix = (np.stack([V, V], 1) / (np.abs(V).max() + 1e-9) * .85 + bg) * fade[:, None]

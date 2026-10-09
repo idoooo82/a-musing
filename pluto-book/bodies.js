@@ -198,16 +198,16 @@ const FACE = (() => {
   let lastKey = '', H = null, GX = null, GY = null;
   function height(p) {
     if (!ST) init();
-    const key = JSON.stringify([p.smile, p.open, p.sad, p.brow, p.O, p.look, p.size]);
+    const key = JSON.stringify([p.smile, p.open, p.sad, p.brow, p.O, p.look, p.size, p.wink]);
     if (key === lastKey) return; lastKey = key;
-    const smile = p.smile === undefined ? .5 : p.smile, open = p.open === undefined ? 1 : p.open, sad = p.sad || 0, brow = p.brow || 0, O = p.O || 0, look = p.look || [0, 0], size = p.size || 1;
+    const smile = p.smile === undefined ? .5 : p.smile, open0 = p.open === undefined ? 1 : p.open, wink = p.wink || 0, sad = p.sad || 0, brow = p.brow || 0, O = p.O || 0, look = p.look || [0, 0], size = p.size || 1;
     H = H || new Float32Array(G * G); GX = GX || new Float32Array(G * G); GY = GY || new Float32Array(G * G);
     const eyes = [[-.265, -.12, .105, .125, 0], [.28, -.105, .115, .12, 1]];
     for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
       const k = j * G + i; const x = (X0 + i * DX) / size, y = (Y0 + j * DY) / size, fx = x + WX[k], fy = y + WY[k];
       let h = ST[k];
       for (const [sx, sy, rx, ry, e] of eyes) {
-        const side = e ? 1 : -1;
+        const side = e ? 1 : -1, open = e ? open0 : open0 * (1 - wink);
         let ex = (fx - sx) / rx, ey = (fy - (sy + .03 * sad)) / (ry * (.28 + .72 * open));
         ey -= sad * .55 * (side * -ex) * -1;                      // outer side droops
         const d = Math.hypot(ex, ey); if (d > 2.6) continue;

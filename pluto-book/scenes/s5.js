@@ -226,7 +226,7 @@
       const iceA = .34 * (1 - clamp(gA * 2));                             // page 4's icy light edge, fading as the gold takes over
       if (iceA > .01) { g2.strokeStyle = `rgba(236,244,255,${iceA})`; g2.lineWidth = lw * .65; for (const c of CRACKS) { crackPath(g2, c, c.pts.length - 1, cx, cy, r, sp, -lw * .9, lw * .9); g2.stroke(); } }
       // gold light seeping out through the cracks (kintsugi)
-      if (gA > .005) {
+      if (false && gA > .005) {                                            // golden seams removed (read as a glitch)
         g2.globalCompositeOperation = 'lighter';
         goldStroke(g2, lw, gA, () => {
           for (const c of CRACKS) { crackPath(g2, c, c.pts.length - 1, cx, cy, r, sp); g2.stroke(); }

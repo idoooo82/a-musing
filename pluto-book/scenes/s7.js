@@ -9,7 +9,7 @@
   function plutoFace(n) {
     const serene = pulse(n, 56.7, 57.15, 58.0, 58.5);
     const listen = pulse(n, 54.7, 55.2, 56.6, 56.9);
-    return { smile: lerp(.55, .85, Math.max(serene, gold(n))) - .3 * listen, open: 1 - .85 * serene, look: [-.7 * listen, .1 * listen], brow: .15 * listen };
+    return { wink: Math.min(1, 1.4 * bump(n, 61.75, .6)), smile: lerp(.55, .85, Math.max(serene, gold(n))) - .3 * listen, open: 1 - .85 * serene, look: [-.7 * listen, .1 * listen], brow: .15 * listen };
   }
   SCENE({
     id: 's7', start: 54.45, trans: 'turn', tdur: .7, folio: 7, plate: { lat: 'TABVLA VII · PARVVS SED AVREVS', he: 'קטן, אבל כולו זהב' },

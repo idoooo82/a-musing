@@ -50,11 +50,11 @@
     [29.55, { smile: -.3, sad: .4, brow: .82, open: 1, O: .88 }],          // "חמצן" - gasp
     [30.05, { smile: -.3, sad: .42, brow: .8, open: 1, O: .82 }],
     [30.55, { smile: -.78, sad: .92, brow: .72, open: .78, O: 0 }],        // ...and sinks
-    [31.45, { smile: -.72, sad: .85, brow: .7, open: .86, O: 0 }],
-    [31.82, { smile: -.55, sad: .65, brow: .9, open: 1, O: .3 }],          // boop - the nose lands
-    [32.1, { smile: -.6, sad: .75, brow: .78, open: .9, O: 0 }],
-    [32.42, { smile: .26, sad: .28, brow: .5, open: .64, O: 0 }],          // the meteor's light: an embarrassed half-smile
-    [32.72, { smile: .24, sad: .3, brow: .52, open: .62, O: 0 }],
+    [31.0, { smile: .35, sad: .15, brow: .2, open: 1, O: 0 }],             // a warm light approaches: he brightens, smiles
+    [31.62, { smile: .5, sad: .08, brow: .15, open: 1, O: 0 }],
+    [31.82, { smile: -.1, sad: .45, brow: .9, open: 1, O: .55 }],          // THUD - a red rock lands right on his face
+    [32.15, { smile: -.72, sad: .92, brow: .78, open: .85, O: 0 }],        // ...and the smile is gone: a clown
+    [32.72, { smile: -.74, sad: .94, brow: .78, open: .82, O: 0 }],
     [33.3, { smile: -.72, sad: .92, brow: .75, open: .8, O: 0 }],          // sinks back ("לא נרגע")
     [34.3, { smile: -.76, sad: .96, brow: .85, open: .76, O: 0 }],
     [34.52, { smile: -.86, sad: 1, brow: .95, open: .45, O: 0 }],          // "כואב" - a wince
@@ -71,6 +71,7 @@
     const fol = pulse(n, 30.75, 31.1, 31.55, 31.8); lx = lerp(lx, .85, fol); ly = lerp(ly, -.1, fol);
     const nose = pulse(n, 31.7, 31.9, 33.0, 33.4); lx = lerp(lx, 0, nose); ly = lerp(ly, .95, nose);
     const shy = pulse(n, 32.2, 32.4, 32.75, 33.0); lx = lerp(lx, -.7, shy); ly = lerp(ly, .7, shy);
+    const hit = pulse(n, 31.0, 31.3, 31.7, 31.85); lx = lerp(lx, .8, hit); ly = lerp(ly, -.6, hit);
     const dz = win(n, 35.15, 35.6), da = spinAng(n) * 1.3;
     lx = lerp(lx, .9 * Math.cos(da), dz); ly = lerp(ly, .8 * Math.sin(da), dz);
     f.look = [lx, ly];
@@ -78,13 +79,13 @@
   }
 
   // ---------------- the meteor (a travelling footlight) ----------------
-  const M0 = 32.0, M1 = 33.12;
+  const M0 = 30.95, M1 = W_CLOWN;
   function meteorAt(n, c) {
-    const u = (n - M0) / (M1 - M0); if (u < -.02 || u > 1.25) return null;
-    const ax = c.x + 3.9 * c.R, ay = c.y + .62 * c.R, bx = c.x - 3.9 * c.R, by = c.y + 1.62 * c.R;
+    const u = (n - M0) / (M1 - M0); if (u < -.02 || u > 1) return null;
+    const ax = c.x + 3.6 * c.R, ay = c.y - 2.3 * c.R, bx = c.x + NOSE[0] * c.R, by = c.y + NOSE[1] * c.R;
     const uu = clamp(u), hx = lerp(ax, bx, uu), hy = lerp(ay, by, uu);
     const L = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / L, uy = (by - ay) / L;
-    const burn = clamp(u / .08) * (1 - clamp((u - .9) / .12));             // flares up, burns out
+    const burn = clamp(u / .08);                                           // flares up and burns all the way in
     return { hx, hy, ux, uy, u, a: burn, trav: uu * L, ax, ay, L };
   }
   // its light on a body at (x,y), radius r
@@ -283,7 +284,7 @@
   // ---------------- Charon: glides in, turns his red pole to us, parks as the nose; flung into orbit by the spin ----------------
   const NOSE = [.0, .085], NR = .135;                                     // nose position (R units from centre) and Charon's radius
   function charonAt(n, c) {
-    if (n < 30.5) return null;
+    if (n < W_CLOWN) return null;
     const R = c.R, nx = c.x + NOSE[0] * R, ny = c.y + NOSE[1] * R;
     let x, y, z = 1, tumble, r = NR * R, trail = 0;
     const u = clamp((n - 30.55) / (W_CLOWN - 30.55));
@@ -297,7 +298,7 @@
     } else {
       const st = n - W_CLOWN;                                              // a tiny settling bounce ("boop")
       x = nx; y = ny - 5 * (R / 214) * Math.exp(-st * 7) * Math.sin(st * 26) * (st < 1.2 ? 1 : 0);
-      tumble = win(n, W_CLOWN - .24, W_CLOWN + .04);
+      tumble = 1;
       if (n > W_AROUND - .05) {                                            // carried round by the face, then flung off into orbit
         const T1 = 35.34, e = easeOut((n - T1) / .7), fl = win(n, T1, T1 + .45);
         const psi = -(spinAng(Math.min(n, T1)) + .3 * Math.max(0, spinAng(n) - spinAng(T1)) + .55 * Math.max(0, n - T1));
@@ -328,9 +329,20 @@
     g2.fillStyle = `rgba(255,236,226,${.55 * tumble})`; g2.beginPath(); g2.ellipse(cx + r * .36, cy - r * .4, r * .13, r * .08, -.7, 0, 7); g2.fill();
     g2.restore();
   };
-  function drawCharonAt(g, n, c, ch) {
-    const ml = meteorLight(n, c, ch.x, ch.y, ch.r);
-    drawCharon(g, ch.x, ch.y, ch.r, { spin: n * .5, light: [.64, -.5], lightCol: [.9, .93, 1.04], amb: .78, light2: ml || undefined, gray: .1, decal: charonDecal(ch.tumble, ml) });
+  function drawCharonAt(g, n, c, ch) {                                    // the red rock "nose" + its impact dust
+    drawBody(g, ch.x, ch.y, ch.r, { kind: 'mars', spin: 1.2, light: [.64, -.5], lightCol: [1.08, .82, .78], amb: .85, rim: .15 });
+    const st = n - W_CLOWN;
+    if (st > 0 && st < 1.4) {
+      g.save();
+      for (let i = 0; i < 34; i++) {
+        const an = hash2(i, 3) * 6.283, sp = (.6 + 1.4 * hash2(i, 5)) * c.R * .55, life = .7 + .6 * hash2(i, 9); if (st > life) continue;
+        const k = st / life, d = sp * (1 - Math.pow(1 - k, 2.2)), x = ch.x + Math.cos(an) * d, y = ch.y + Math.sin(an) * d * .75 + 18 * k * k;
+        const a = (1 - k) * .55, rr = (1.2 + 3.5 * hash2(i, 7)) * (1 + 1.5 * k) * (c.R / 214);
+        g.fillStyle = rgba(hash2(i, 11) < .5 ? [196, 160, 140] : [150, 110, 100], a); g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+      }
+      const rk = clamp(st / .5); g.strokeStyle = `rgba(230,210,200,${.35 * (1 - rk)})`; g.lineWidth = 1.2; g.beginPath(); g.ellipse(ch.x, ch.y, ch.r * (1.2 + 2.4 * rk), ch.r * (1 + 1.8 * rk), 0, 0, 7); g.stroke();
+      g.restore();
+    }
   }
   function charonTrail(g, n, c, ch, front) {                             // a faint long-exposure arc of his orbit
     if (!ch.trail || ch.trail < .02) return;
@@ -462,6 +474,7 @@
   SCENE({ id: 's4', start: 25.0, trans: 'turn', tdur: .9, folio: 4,
     plate: { lat: 'TABVLA IV · SINE AERE', he: 'בלי חמצן' },
     ill(g, n) {
+      const ik = n > W_CLOWN ? Math.exp(-(n - W_CLOWN) * 7) : 0; g.translate(9 * ik * Math.sin((n - W_CLOWN) * 70), 6 * ik * Math.sin((n - W_CLOWN) * 53 + 1));
       const c0 = cam(n), sh = shiver(n), c = { x: c0.x + sh[0], y: c0.y + sh[1], R: c0.R };
       sky(g, n, c0);
       farSun(g, n, c0);
