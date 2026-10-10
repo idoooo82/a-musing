@@ -185,22 +185,33 @@ function drawSubtitle(p, n, a) {
 window.renderPage = function (k, n) {
   const s = SCENES[k]; P.setTransform(1, 0, 0, 1, 0, 0); P.globalAlpha = 1; P.globalCompositeOperation = 'source-over';
   P.filter = 'none';
-  if (s.layout === 'full') { s.page(P, n, n - s.start); }
+  if (s.layout === 'full') {                                    // a cover: the closed book lying on the desk
+    window.BOOKZ = 0; window._BOOKZ_PREV = 0;
+    P.drawImage(deskClosedTex(), 0, 0);
+    P.save(); P.beginPath(); P.roundRect(BOOK.X0, BOOK.Y0, BOOK.PW, BOOK.PH, 8); P.clip();
+    P.setTransform(BOOK.SB, 0, 0, BOOK.SB, BOOK.X0, BOOK.Y0); s.page(P, n, n - s.start); P.restore();
+    P.setTransform(1, 0, 0, 1, 0, 0);
+    const gr = P.createLinearGradient(BOOK.X0 + BOOK.PW - 40, 0, BOOK.X0 + BOOK.PW, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)');   // the hinge (spine on the right)
+    P.fillStyle = gr; P.fillRect(BOOK.X0 + BOOK.PW - 40, BOOK.Y0, 40, BOOK.PH);
+  }
   else {
     const z = bookZoom(s, n), Z = 1 + z * (ZFULL - 1), cxp = PAGE.IX + PAGE.IW / 2, cyp = PAGE.IY + PAGE.IH / 2;
     window.BOOKZ = z; window._BOOKZ_PREV = bookZoom(s, n - .05);
     P.fillStyle = '#000'; P.fillRect(0, 0, W, H);
-    P.setTransform(Z, 0, 0, Z, cxp - cxp * Z, (cyp + (H / 2 - cyp) * z) - cyp * Z);
+    const [BS, BX, BY] = bookXf(z); P.setTransform(BS, 0, 0, BS, BX, BY);
+    if (z < .999) { P.save(); P.scale(1 / BOOK.SB, 1 / BOOK.SB); P.translate(-BOOK.X0, -BOOK.Y0); P.drawImage(deskTex(), 0, 0); P.restore(); }
     P.drawImage(PAPER, 0, 0);
     composeFrame(P, s, n);
     if (s.text) drawTextLine(P, n, Object.assign({}, s.textOpt || {}, { alpha: 1 - ease(z * 1.6) }));
     if (s.over) { P.save(); s.over(P, n, n - s.start); P.restore(); }
     if (typeof DEEP !== 'undefined' && s.near !== false) DEEP.near(P, n + (window.AMB_OFF || 0), 1);
+    pageInBook(P, z);
     P.setTransform(1, 0, 0, 1, 0, 0);
     if (s.text) drawSubtitle(P, n, ease((z - .45) / .55));
   }
   return true;
 };
+window.bookGeom = function () { return [BOOK.X0, BOOK.Y0, BOOK.PW, BOOK.PH]; };
 window.renderBlank = function () { P.setTransform(1, 0, 0, 1, 0, 0); P.drawImage(PAPER, 0, 0); return true; };
 window.timeline = () => SCENES.map(s => ({ id: s.id, start: s.start, trans: s.trans, tdur: s.tdur }));
 window.sceneIndex = id => SCENES.findIndex(s => s.id === id);
