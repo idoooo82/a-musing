@@ -75,23 +75,47 @@ function buildTex(kind) {
   return (TEX[kind] = d);
 }
 
+// ---------- high-resolution Pluto maps (gen_tex.py): colour + slope/bump, as a small mip chain ----------
+const PLUTO_HI = [];                                   // [{w,h,c (RGB), n (RG slopes)}], largest first
+const SLOPE_K = 1 / 220;
+async function loadPlutoHi() {
+  const img = s => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad('tex ' + s); i.src = s; });
+  const [ci, ni] = await Promise.all([img('tex/pluto_c.jpg'), img('tex/pluto_n.png')]);
+  for (let w = ci.width; w >= 512; w >>= 1) {
+    const h = w >> 1, get = (im) => { const c = canvas(w, h), x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, w, h); return x.getImageData(0, 0, w, h).data; };
+    const C = get(ci), N = get(ni), c3 = new Uint8ClampedArray(w * h * 3), n2 = new Int8Array(w * h * 2);
+    for (let i = 0, j = 0, k = 0; i < C.length; i += 4, j += 3, k += 2) { c3[j] = C[i]; c3[j + 1] = C[i + 1]; c3[j + 2] = C[i + 2]; n2[k] = N[i] - 128; n2[k + 1] = N[i + 1] - 128; }
+    PLUTO_HI.push({ w, h, c: c3, n: n2 });
+  }
+}
+function plutoLevel(rpx) {                             // largest level whose texel density does not exceed ~1.6 per pixel
+  let L = PLUTO_HI[PLUTO_HI.length - 1];
+  for (const l of PLUTO_HI) { if (l.w / (2 * Math.PI * rpx) <= 1.6) { L = l; break; } }
+  return L;
+}
+
 // ---------- the sphere painter ----------
 // o: {kind, spin, light:[lx,ly] (direction the light COMES FROM, screen space), gray, gold, glow, atm, rim, alpha,
 //     squash:[sx,sy], rot, face:{...relief params} or null, ring:{tilt, inner, outer, sq, col}, decal(g,cx,cy,r), albedo:[r,g,b] tint}
 const _scr = canvas(8, 8), _sx = _scr.getContext('2d');
 function drawBody(g, x, y, r, o = {}) {
-  const kind = o.kind || 'pluto'; const tex = buildTex(kind);
+  const kind = o.kind || 'pluto';
   const T0 = g.getTransform(), SCL = clamp(Math.hypot(T0.a, T0.b), 1, 2.2), r0 = r; r = r * SCL;   // paint at device resolution
   const R = Math.max(2, Math.ceil(r)), S = 2 * R + 6;
   if (_scr.width < S || _scr.height < S) { _scr.width = Math.max(S, _scr.width); _scr.height = Math.max(S, _scr.height); }
   _sx.setTransform(1, 0, 0, 1, 0, 0); _sx.clearRect(0, 0, _scr.width, _scr.height);
   const img = _sx.createImageData(S, S), D = img.data;
+  const HI = kind === 'pluto' && PLUTO_HI.length ? plutoLevel(r) : null;
+  const tex = HI ? HI.c : buildTex(kind), TW = HI ? HI.w : TEXW, TH = HI ? HI.h : TEXH, NM = HI ? HI.n : null;
+  const BK = NM ? .0105 * (o.bump === undefined ? 1 : o.bump) / (SLOPE_K * 127) : 0;
   const spin = o.spin || 0, gray = o.gray || 0, gold = o.gold || 0, glow = o.glow || 0, rimA = o.rim === undefined ? .35 : o.rim;
-  let lx = o.light ? o.light[0] : -.62, ly = o.light ? o.light[1] : -.55; const lz0 = Math.sqrt(Math.max(.04, 1 - lx * lx - ly * ly)); const ll = Math.hypot(lx, ly, lz0); lx /= ll; ly /= ll; const LZ = lz0 / ll;
+  let lx = o.light ? o.light[0] : -.62, ly = o.light ? o.light[1] : -.55;
+  const lz0 = o.light && o.light.length > 2 ? o.light[2] : Math.sqrt(Math.max(.04, 1 - lx * lx - ly * ly)); const ll = Math.hypot(lx, ly, lz0); lx /= ll; ly /= ll; const LZ = lz0 / ll;
+  const BACK = clamp(-LZ);                                // light from behind him: haze lights up
   const cx = R + 3, cy = R + 3, ir = 1 / r;
-  const shadowCol = o.shadow || [70, 62, 118];
+  const REAL = o.real || 0, shadowCol = o.shadow || (REAL ? [40, 44, 70] : [70, 62, 118]);
   const LC = o.lightCol || [1, 1, 1], AMB = o.amb === undefined ? 1 : o.amb;
-  let l2 = null; if (o.light2 && o.light2.k > 0) { let [ax, ay] = o.light2.dir; const az = Math.sqrt(Math.max(.02, 1 - ax * ax - ay * ay)); const al = Math.hypot(ax, ay, az); l2 = [ax / al, ay / al, az / al, o.light2.col || [255, 160, 90], o.light2.k]; }
+  let l2 = null; if (o.light2 && o.light2.k > 0) { let [ax, ay] = o.light2.dir; const az = o.light2.dir.length > 2 ? o.light2.dir[2] : Math.sqrt(Math.max(.02, 1 - ax * ax - ay * ay)); const al = Math.hypot(ax, ay, az); l2 = [ax / al, ay / al, az / al, o.light2.col || [255, 160, 90], o.light2.k]; }
   const F = o.face, cs = Math.cos(spin), sn = Math.sin(spin);
   let K = 0, fy0 = 0, fsz = 1;
   if (F && r > 6) { FACE.height(F); K = .052 * (F.relief === undefined ? 1 : F.relief); fy0 = F.y === undefined ? .02 : F.y; fsz = 1; }
@@ -103,9 +127,9 @@ function drawBody(g, x, y, r, o = {}) {
       const nz = Math.sqrt(Math.max(0, 1 - d2));
       let lon = Math.atan2(dx, nz) + spin + Math.PI / 2, lat = Math.asin(clamp(dy, -1, 1));
       let u = (lon / (2 * Math.PI)) % 1; if (u < 0) u += 1; let v = (lat / Math.PI + .5);
-      const fx = u * TEXW - .5, fy = clamp(v * TEXH - .5, 0, TEXH - 1.001), ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
-      const i0 = ((ix % TEXW) + TEXW) % TEXW, i1 = (i0 + 1) % TEXW, j1 = Math.min(iy + 1, TEXH - 1);
-      const a0 = (iy * TEXW + i0) * 3, a1 = (iy * TEXW + i1) * 3, b0 = (j1 * TEXW + i0) * 3, b1 = (j1 * TEXW + i1) * 3;
+      const fx = u * TW - .5, fy = clamp(v * TH - .5, 0, TH - 1.001), ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      const i0 = ((ix % TW) + TW) % TW, i1 = (i0 + 1) % TW, j1 = Math.min(iy + 1, TH - 1);
+      const a0 = (iy * TW + i0) * 3, a1 = (iy * TW + i1) * 3, b0 = (j1 * TW + i0) * 3, b1 = (j1 * TW + i1) * 3;
       let cr = (tex[a0] * (1 - tx) + tex[a1] * tx) * (1 - ty) + (tex[b0] * (1 - tx) + tex[b1] * tx) * ty;
       let cg = (tex[a0 + 1] * (1 - tx) + tex[a1 + 1] * tx) * (1 - ty) + (tex[b0 + 1] * (1 - tx) + tex[b1 + 1] * tx) * ty;
       let cb = (tex[a0 + 2] * (1 - tx) + tex[a1 + 2] * tx) * (1 - ty) + (tex[b0 + 2] * (1 - tx) + tex[b1 + 2] * tx) * ty;
@@ -124,14 +148,25 @@ function drawBody(g, x, y, r, o = {}) {
           }
         }
       }
+      if (NM) {                                        // surface relief from the slope map (craters, mountains, blades)
+        const p0 = (iy * TW + i0) * 2, p1 = (iy * TW + i1) * 2, q0 = (j1 * TW + i0) * 2, q1 = (j1 * TW + i1) * 2;
+        const se = ((NM[p0] * (1 - tx) + NM[p1] * tx) * (1 - ty) + (NM[q0] * (1 - tx) + NM[q1] * tx) * ty) * BK;
+        const sn = ((NM[p0 + 1] * (1 - tx) + NM[p1 + 1] * tx) * (1 - ty) + (NM[q0 + 1] * (1 - tx) + NM[q1 + 1] * tx) * ty) * BK;
+        const cl = Math.max(.05, Math.sqrt(dx * dx + nz * nz)), ic = 1 / cl;
+        // east tangent (nz,0,-dx)/cl ; north(+lat) tangent (-dy*dx/cl, cl, -dy*nz/cl)
+        Nx -= se * nz * ic - sn * dy * dx * ic; Ny -= sn * cl; Nz -= -se * dx * ic - sn * dy * nz * ic;
+        const nl = 1 / Math.hypot(Nx, Ny, Nz); Nx *= nl; Ny *= nl; Nz *= nl;
+      }
       // soft painterly light: wrapped diffuse, cool violet shadows, faint rim from the nebula
-      const ndl = Nx * lx + Ny * ly + Nz * LZ, wrap = clamp((ndl + .30) / 1.30);
-            const shadowMix = (1 - wrap) * .30;
+      const ndl = Nx * lx + Ny * ly + Nz * LZ, WR = lerp(.30, .07, REAL), wrap = clamp((ndl + WR) / (1 + WR));
+      const shadowMix = (1 - wrap) * lerp(.30, .10, REAL);
       const t0 = cr, t1 = cg, t2 = cb;
-      const shA = AMB * (.30 * (1 - Math.pow(wrap, .5)) ) + .74 * Math.pow(wrap, 1.15);
-      cr = t0 * (AMB * .30 + .74 * Math.pow(wrap, 1.15) * LC[0]) * (1 - shadowMix) + shadowCol[0] * shadowMix * AMB;
-      cg = t1 * (AMB * .30 + .74 * Math.pow(wrap, 1.15) * LC[1]) * (1 - shadowMix) + shadowCol[1] * shadowMix * AMB;
-      cb = t2 * (AMB * .30 + .74 * Math.pow(wrap, 1.15) * LC[2]) * (1 - shadowMix) + shadowCol[2] * shadowMix * AMB;
+      // REAL: near-Lambert falloff, a dim earthshine-like fill, a little limb darkening (like the New Horizons frames)
+      const A0 = AMB * lerp(.30, .17, REAL), KD = lerp(.74, 1.02, REAL), PW_ = lerp(1.15, 1.0, REAL), lmb = 1 - REAL * .16 * Math.pow(1 - nz, 2);
+      const dif = KD * Math.pow(wrap, PW_) * lmb;
+      cr = t0 * (A0 + dif * LC[0]) * (1 - shadowMix) + shadowCol[0] * shadowMix * AMB;
+      cg = t1 * (A0 + dif * LC[1]) * (1 - shadowMix) + shadowCol[1] * shadowMix * AMB;
+      cb = t2 * (A0 + dif * LC[2]) * (1 - shadowMix) + shadowCol[2] * shadowMix * AMB;
       if (l2) { const d2l = Nx * l2[0] + Ny * l2[1] + Nz * l2[2], w2 = Math.pow(clamp(d2l), 1.4) * l2[4]; cr += t0 / 255 * l2[3][0] * w2; cg += t1 / 255 * l2[3][1] * w2; cb += t2 / 255 * l2[3][2] * w2; }
       const rim = Math.pow(1 - nz, 2.6) * rimA * clamp(.3 - (dx * lx + dy * ly + nz * LZ) * 1.2);
       cr += 120 * rim; cg += 185 * rim; cb += 215 * rim;
@@ -154,7 +189,14 @@ function drawBody(g, x, y, r, o = {}) {
   // thin atmosphere (Pluto's real hazy blue layer) + inner warmth / gold halo - outside the disc only
   if (o.atm || glow || gold) {
     g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); if (o.rot) g.rotate(o.rot); g.scale(sq[0], sq[1]);
-    if (o.atm) { const a = o.atm, RR = r0 * 1.16; const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(120,170,240,0)'); gr.addColorStop(.83, 'rgba(120,170,240,0)'); gr.addColorStop(.87, `rgba(150,195,250,${.20 * a})`); gr.addColorStop(.92, `rgba(120,170,240,${.06 * a})`); gr.addColorStop(1, 'rgba(120,170,240,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
+    if (o.atm && BACK > .02) {                         // seen against the Sun: the thin haze glows all round (New Horizons' famous view)
+      const a = o.atm * BACK, RR = r0 * 1.22, gr = g.createRadialGradient(0, 0, 0, 0, 0, RR);
+      gr.addColorStop(0, 'rgba(120,170,240,0)'); gr.addColorStop(.80, 'rgba(120,170,240,0)'); gr.addColorStop(.818, `rgba(205,228,255,${.85 * a})`);
+      gr.addColorStop(.845, `rgba(150,196,252,${.42 * a})`); gr.addColorStop(.9, `rgba(110,160,240,${.12 * a})`); gr.addColorStop(1, 'rgba(110,160,240,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill();
+    }
+    if (o.atm && o.real) { const a = o.atm, RR = r0 * 1.06; const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(120,170,240,0)'); gr.addColorStop(.935, 'rgba(120,170,240,0)'); gr.addColorStop(.947, `rgba(150,196,255,${.30 * a})`); gr.addColorStop(.97, `rgba(110,160,240,${.07 * a})`); gr.addColorStop(1, 'rgba(110,160,240,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
+    else if (o.atm) { const a = o.atm, RR = r0 * 1.16; const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(120,170,240,0)'); gr.addColorStop(.83, 'rgba(120,170,240,0)'); gr.addColorStop(.87, `rgba(150,195,250,${.20 * a})`); gr.addColorStop(.92, `rgba(120,170,240,${.06 * a})`); gr.addColorStop(1, 'rgba(120,170,240,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
     const ga = glow * .25 + gold * .5; if (ga > 0) { const RR = r0 * (1.5 + gold * .6); const gr = g.createRadialGradient(0, 0, 0, 0, 0, RR); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(r0 / RR * .97, 'rgba(255,200,120,0)'); gr.addColorStop(r0 / RR * 1.01, `rgba(255,${196 + 30 * gold | 0},${120 - 40 * gold | 0},${.38 * ga})`); gr.addColorStop(1, 'rgba(255,190,120,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, RR, 0, 7); g.fill(); }
     g.restore();
   }
@@ -186,7 +228,7 @@ const FACE = (() => {
     for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
       const x = X0 + i * DX, y = Y0 + j * DY, k = j * G + i;
       WX[k] = (fbm2(x * 14 + 1, y * 14, 3) - .5) * .05; WY[k] = (fbm2(x * 14 + 9, y * 14, 3) - .5) * .05;
-      let h = .13 * fbm2(x * 18, y * 18, 4) + .05 * fbm2(x * 42 + 5, y * 42, 3);
+      let h = .07 * fbm2(x * 14, y * 14, 4) + .018 * fbm2(x * 42 + 5, y * 42, 3);
       const away = sm(.42, .66, Math.hypot(x * .9, y - .06));
       for (const [cx, cy, r] of cr) { const d = Math.hypot(x - cx, y - cy) / r; if (d > 1.6) continue; h += away * (-.45 * (1 - sm(0, 1, d)) + .2 * Math.exp(-Math.pow((d - 1.05) / .2, 2))); }
       ST[k] = h;
@@ -252,8 +294,13 @@ const FACE = (() => {
   return { height, sample };
 })();
 
+// a screen-space light ([lx,ly] or [lx,ly,lz]) seen by a camera that has orbited `yaw` radians round the body
+function orbitLight(l, yaw) {
+  const lz = l.length > 2 ? l[2] : Math.sqrt(Math.max(.04, 1 - l[0] * l[0] - l[1] * l[1])), n = Math.hypot(l[0], l[1], lz), x = l[0] / n, y = l[1] / n, z = lz / n;
+  const c = Math.cos(yaw), s = Math.sin(yaw); return [x * c - z * s, y, x * s + z * c];
+}
 // convenience wrappers so every page draws the characters the same way
-const PLUTO_DEF = { kind: 'pluto', atm: 1, rim: .35 };
+const PLUTO_DEF = { kind: 'pluto', atm: 1, rim: .22, real: 1 };
 function drawPluto(g, x, y, r, o = {}) { const v = Object.assign({}, PLUTO_DEF, o); if (v.face === undefined) v.face = { smile: .5 }; drawBody(g, x, y, r, v); }
 function drawCharon(g, x, y, r, o = {}) { const v = Object.assign({ kind: 'charon', rim: .45 }, o); if (v.face === undefined) v.face = null; drawBody(g, x, y, r, v); }
 function drawPlanet(g, kind, x, y, r, o = {}) {

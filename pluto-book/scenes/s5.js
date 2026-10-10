@@ -30,12 +30,18 @@
   const spinRate = n => (spin(n + .01) - spin(n - .01)) / .02;
   const baseRate = n => (baseSpin(n + .01) - baseSpin(n - .01)) / .02;
 
+  // ---------------- the orbit: we are at his side while he still whirls, and swing round to his face as he calms ----------------
+  const yawAt = n => { const u = clamp((n - 36.5) / (39.0 - 36.5)), e = u * u * u * (u * (u * 6 - 15) + 10); return lerp(-1.35, 0, e); };
+  const pitchAt = n => lerp(-.22, 0, ease(clamp((n - 36.5) / 2.5)));
+  const distAt = n => { let d = 140; d = lerp(d, 46, ease((n - 39.32) / (41.2 - 39.32))); d = lerp(d, 170, ease((n - 44.18) / (44.95 - 44.18))); return d; };
+  const orbAt = n => ({ yaw: yawAt(n), pitch: pitchAt(n), dist: distAt(n) });
+
   // ---------------- camera / his place on the plate (x, y, R) ----------------
   const LAUNCH = 45.0, LX = 560, LY = 448;
   function cam(n) {
     let x = 720, y = 402, R = 196;
     const k0 = win(n, 37.3, 39.3); x = lerp(x, 712, k0); y = lerp(y, 414, k0); R = lr(R, 208, k0);
-    const k1 = ease((n - 39.32) / (40.95 - 39.32)); x = lerp(x, 690, k1); y = lerp(y, 438, k1); R = lr(R, 312, k1);   // "עמוק בפנים"
+    const k1 = ease((n - 39.32) / (40.95 - 39.32)); x = lerp(x, 700, k1); y = lerp(y, 452, k1); R = lr(R, 392, k1);   // "עמוק בפנים"
     R *= 1 + .02 * win(n, 40.95, 44.2);
     const k2 = ease((n - 44.18) / (44.95 - 44.18)); x = lerp(x, LX, k2); y = lerp(y, LY, k2); R = lr(R, 160, k2);       // pull back
     R = lr(R, 176, win(n, 45.2, 46.1));
@@ -89,7 +95,7 @@
   function inkPatch() {                                                  // identical to page 4 (same mark, same place)
     if (INKP) return INKP;
     const RF = 220, F = canvas(2 * RF, 2 * RF), fx = F.getContext('2d');
-    fx.translate(RF, RF - .645 * RF); fx.scale(1, .86); drawStampMark(fx, 0, 0, .27 * RF / 212, -.13, .96);
+    fx.translate(RF, RF - .62 * RF); fx.scale(1, .86); drawStampMark(fx, 0, 0, .33 * RF / 212, -.13, .96);
     const src = fx.getImageData(0, 0, 2 * RF, 2 * RF).data;
     INKP = canvas(PW, PH); const x = INKP.getContext('2d'), id = x.createImageData(PW, PH), d = id.data;
     for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
@@ -222,7 +228,8 @@
       // cracks removed (client)
       g2.save(); g2.beginPath(); g2.arc(cx, cy, r - .5, 0, 7); g2.clip();
       g2.globalCompositeOperation = 'multiply'; g2.drawImage(DEC, 0, 0);
-      g2.globalCompositeOperation = 'source-over'; g2.lineCap = 'round'; g2.lineJoin = 'round';
+      g2.globalCompositeOperation = 'source-over'; g2.globalAlpha = .62; g2.drawImage(DEC, 0, 0); g2.globalAlpha = 1;   // opaque coat: ink ON him
+      g2.lineCap = 'round'; g2.lineJoin = 'round';
       const iceA = .34 * (1 - clamp(gA * 2));                             // page 4's icy light edge, fading as the gold takes over
       if (false && iceA > .01) { g2.strokeStyle = `rgba(236,244,255,${iceA})`; g2.lineWidth = lw * .65; for (const c of CRACKS) { crackPath(g2, c, c.pts.length - 1, cx, cy, r, sp, -lw * .9, lw * .9); g2.stroke(); } }
       // gold light seeping out through the cracks (kintsugi)
@@ -281,7 +288,7 @@
   // ---------------- the "מתחזה" tag (pinned exactly as page 4 left it); snaps on "קובע" and tumbles away ----------------
   const TAG_AL = 1.165, TAG_LA = -.39, TAG_LEN = .396, TAG_S = .7 / 212;
   function tagAt(n, c) {
-    const R = c.R, sp = spin(n), [x, y, z] = proj(TAG_AL, TAG_LA, sp);
+    const R = c.R, sp = spin(n) + yawAt(n), [x, y, z] = proj(TAG_AL, TAG_LA, sp);
     const ax = c.x + x * R, ay = c.y + y * R;
     const w = spinRate(n), out = Math.atan(w * w * .012);
     const len = TAG_LEN * R, th = TAG_AL - sp;
@@ -329,7 +336,7 @@
     }
     g.save(); g.translate(T.tx, T.ty); g.rotate(T.rot); tagBody(g, T.s);
     const dimK = win(n, 39.4, 40.9) * (1 - .5 * win(n, 41.5, 42.2));
-    if (warm > .02 || dimK > .01) { g.scale(T.s, T.s); TAGPATH(g); g.fillStyle = `rgba(10,12,32,${.42 * dimK})`; g.fill(); g.fillStyle = `rgba(255,170,90,${.2 * Math.min(1, warm)})`; g.fill(); }
+    if (warm > .02 || dimK > .01) { TAGPATH(g); g.fillStyle = `rgba(10,12,32,${.42 * dimK})`; g.fill(); g.fillStyle = `rgba(255,170,90,${.2 * Math.min(1, warm)})`; g.fill(); }
     g.restore();
     g.restore();
   }
@@ -371,7 +378,7 @@
 
   // ---------------- Pluto's look & light ----------------
   function plutoOpts(n, c) {
-    const sp = spin(n), gA = goldA(n), hb = heart(n);
+    const sp = spin(n) + yawAt(n), gA = goldA(n), hb = heart(n);
     const calm = win(n, 37.3, 39.3), inner = win(n, 39.4, 40.9), det = win(n, 41.5, 42.4), com = win(n, 44.2, 45.0);
     let lc = mixc([.86, .9, 1.03], [1, .98, .95], calm);
     lc = mixc(lc, [.8, .82, .9], inner * (1 - det * .5));                 // the outside world dims: the light now comes from inside
@@ -382,7 +389,7 @@
     const crouch = bump(n, 44.82, .3), v = velAt(n), spd = clamp(Math.hypot(v[0], v[1]) / 1400);
     renderInk(n, c.R, sp);
     return {
-      spin: sp, face: faceAt(n), light: [lerp(.64, -.6, com), lerp(-.5, -.42, com) - .3 * Math.sin(Math.PI * com)], lightCol: lc, amb,
+      spin: sp, face: faceAt(n), light: orbitLight([lerp(.64, -.6, com), lerp(-.5, -.42, com) - .3 * Math.sin(Math.PI * com)], yawAt(n)), lightCol: lc, amb,
       light2: { dir: [lerp(.05, .35, com), lerp(.82, .5, com)], col: [255, 176, 90], k: lerp(1.1, .6, com) * gA },
       glow: .5 * gA + .2 * com, gold: .14 * com, gray: lerp(lerp(.3, .14, calm), .22, inner) * (1 - .6 * com), atm: 1.1 * win(n, 44.36, 44.75), rim: lerp(.16, .32, Math.max(calm, com)),
       squash: [sw * (1 - .016 * breath + .03 * crouch + .1 * spd), sw * (1 + .038 * breath - .03 * crouch - .06 * spd)],
@@ -498,13 +505,13 @@
     SPACE.draw(g, { t: n, cam: [.2775 + .05 * com, .0652 - .02 * com], zoom: 1 + (Z - 1) * .045, neb: lerp(.34, .5, com), galx: .18 + .15 * com, gpos: [-.62, -.32],
       cold: .78 * (1 - .5 * calm) * (1 - .45 * inner) * (1 - .9 * com), gray: .3 * (1 - .65 * calm) * (1 - com),
       bright: lerp(lerp(lerp(.8, .86, calm), .7, inner), .84, Math.max(det * .6, com)) + .06 * com,
-      warm: .08 * calm + .12 * inner + .12 * det + .3 * com, gold: .18 * com, swirl: .32 * rn, swc });
+      warm: .08 * calm + .12 * inner + .12 * det + .3 * com, gold: .18 * com, swirl: .32 * rn, swc, orbit: orbAt(n), orbitPrev: orbAt(n - .05) });
     // a warm light finds him from the left: the way he will go
     if (com > 0) {
       const gr = g.createLinearGradient(0, 0, 760, 0); gr.addColorStop(0, `rgba(255,190,120,${.13 * com})`); gr.addColorStop(1, 'rgba(255,190,120,0)');
       g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.fillRect(0, 0, 760, PAGE.IH); g.restore();
     }
-    const scam = [.436, .108], sz = 1 + (Z - 1) * .1, rot = .8 + .14 * (baseSpin(n) - SP0);
+    const scam = [.436 - .9 * yawAt(n), .108 + .5 * pitchAt(n)], sz = 1 + (Z - 1) * .1, rot = .8 + .14 * (baseSpin(n) - SP0);
     g.save(); g.translate(720, 402); g.rotate(rot); g.translate(-720, -402);
     const dim = lerp(lerp(.78, .95, calm), .62, inner * (1 - det)) + .15 * com;
     if (tk < 1) STARS.draw(g, { t: n, cam: scam, zoom: sz, dim, alpha: 1 - tk });
@@ -560,7 +567,7 @@
       if (ch.z >= 0 && n < 45.0) drawCharonAt(g, n, c, ch, gA);
       // annotation: the gold within
       const a1 = pulse(n, 40.25, 40.7, 41.45, 41.85), g1 = win(n, 40.25, 40.75);
-      const pa = proj(-.5, .3, spin(n));
+      const pa = proj(-.5, .3, spin(n) + yawAt(n));
       note(g, 'aurum intus', c.x - 1.5 * c.R, c.y + .66 * c.R, c.x + pa[0] * c.R, c.y + pa[1] * c.R, a1, 'right', g1, [240, 214, 160]);
     },
     over(p, n) {

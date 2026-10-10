@@ -17,15 +17,22 @@
     W_HE = 33.08, W_CALM = 33.38, W_HURT = 34.38, W_AROUND = 35.02, W_SPINS = 35.90;
   const ICE = [214, 232, 255], CREAM = [236, 226, 204];
 
+  // ---------------- the orbit: we open BEHIND him (the Sun eclipsed, his haze a blue ring) and circle round to his face ----------------
+  const ORB0 = 25.45, ORB1 = 27.95;
+  const yawAt = n => { const u = clamp((n - ORB0) / (ORB1 - ORB0)), e = u * u * u * (u * (u * 6 - 15) + 10); return lerp(Math.PI + .2, 0, e) + .06 * (1 - e) * Math.sin(n * .7); };
+  const pitchAt = n => .16 * (1 - ease(clamp((n - ORB0) / (ORB1 - ORB0)))) ;
+  const LW = (() => { const v = [.64, -.5, .58], l = Math.hypot(...v); return v.map(x => x / l); })();   // the Sun's direction (world)
+  const lightAt = n => { const y = yawAt(n), c = Math.cos(y), s = Math.sin(y); return [LW[0] * c - LW[2] * s, LW[1], LW[0] * s + LW[2] * c]; };
+
   // ---------------- camera: Pluto's plate position (x,y) and radius R ----------------
   const lr = (a, b, t) => a * Math.pow(b / a, t);                         // zoom interpolation (log space)
   function cam(n) {
     const w = n - S0;
-    let x = 548 - 7.5 * w, y = 455 + 3 * Math.sin(w * .55), R = 64 + 2.4 * w;  // wide: small, drifting away from the Sun
+    let x = 712 - 4 * w, y = 408 + 3 * Math.sin(w * .55), R = 205 - 12 * w;      // the orbit shot: he hangs in the middle
     const k1 = ease((n - 27.85) / (29.3 - 27.85));                         // push in on "נשאר לרגע"
-    x = lerp(x, 720, k1); y = lerp(y, 392, k1); R = lr(R, 172 + 5 * clamp((n - 29.3) / 1.3), k1);
+    x = lerp(x, 720, k1); y = lerp(y, 392, k1); R = lr(R, 196 + 6 * clamp((n - 29.3) / 1.3), k1);
     const k2 = ease((n - 30.55) / (31.75 - 30.55));                        // closer for the clown nose
-    x = lerp(x, 712, k2); y = lerp(y, 398, k2); R = lr(R, 214 + 4 * clamp((n - 31.75) / 3), k2);
+    x = lerp(x, 712, k2); y = lerp(y, 398, k2); R = lr(R, 236 + 4 * clamp((n - 31.75) / 3), k2);
     const k3 = ease((n - 34.95) / (36.3 - 34.95));                         // a slight pull back while he spins
     R = lr(R, 196, k3); x = lerp(x, 720, k3); y = lerp(y, 402, k3);
     return { x, y, R };
@@ -138,7 +145,7 @@
   function inkPatch() {
     if (INKP) return INKP;
     const RF = 220, F = canvas(2 * RF, 2 * RF), fx = F.getContext('2d');
-    fx.translate(RF, RF - .645 * RF); fx.scale(1, .86); drawStampMark(fx, 0, 0, .27 * RF / 212, -.13, .96);
+    fx.translate(RF, RF - .62 * RF); fx.scale(1, .86); drawStampMark(fx, 0, 0, .33 * RF / 212, -.13, .96);
     const src = fx.getImageData(0, 0, 2 * RF, 2 * RF).data;
     INKP = canvas(PW, PH); const x = INKP.getContext('2d'), id = x.createImageData(PW, PH), d = id.data;
     for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
@@ -215,7 +222,8 @@
       DG.lineCap = 'round'; DG.lineJoin = 'round'; cracksInto(DG, cx, cy, r, sp, n, 0);
       g2.save(); g2.beginPath(); g2.arc(cx, cy, r - .5, 0, 7); g2.clip();
       g2.globalCompositeOperation = 'multiply'; g2.drawImage(DEC, 0, 0);
-      g2.globalCompositeOperation = 'source-over'; g2.lineCap = 'round'; g2.lineJoin = 'round'; cracksInto(g2, cx, cy, r, sp, n, 1);
+      g2.globalCompositeOperation = 'source-over'; g2.globalAlpha = .62; g2.drawImage(DEC, 0, 0); g2.globalAlpha = 1;   // opaque coat: ink ON him
+      g2.lineCap = 'round'; g2.lineJoin = 'round'; cracksInto(g2, cx, cy, r, sp, n, 1);
       g2.restore();
     };
   }
@@ -224,11 +232,11 @@
   function plutoOpts(n, c) {
     const fz = win(n, 29.35, 30.4);                                         // atmosphere frozen
     const ml = meteorLight(n, c, c.x, c.y, c.R);
-    const sp = spinAng(n) + .06 * Math.sin(n * .45);
+    const sp = spinAng(n) + .06 * Math.sin(n * .45) + yawAt(n);
     const gasp = pulse(n, 29.3, 29.55, 30.05, 30.5), bonk = Math.exp(-Math.max(0, n - W_CLOWN) * 9) * (n > W_CLOWN ? 1 : 0);
     return {
       spin: sp, face: faceAt(n),
-      light: [.64, -.5], lightCol: [.86, .9, 1.03], amb: lerp(.5, .44, win(n, 33, 34.5)) + .04 * gasp,
+      light: lightAt(n), lightCol: [.86, .9, 1.03], amb: (lerp(.5, .44, win(n, 33, 34.5)) + .04 * gasp) * (1 - .55 * clamp(-lightAt(n)[2] * 2)),
       light2: ml || undefined, gray: lerp(.12, .3, fz), atm: 1 - fz, rim: lerp(.35, .16, fz), glow: 0,
       squash: [1 - .02 * gasp + .025 * bonk * Math.cos((n - W_CLOWN) * 40), 1 + .03 * gasp - .025 * bonk * Math.cos((n - W_CLOWN) * 40)],
       decal: plutoDecal(n, sp),
@@ -410,25 +418,28 @@
 
   // ---------------- the far Sun (only a bright star from out here) and his orbit ----------------
   function farSun(g, n, c) {
-    const Z = c.R / 64, f = 1 + (Z - 1) * .32;
-    const sx = c.x + (1240 - 548) * f, sy = c.y + (148 - 455) * f; if (sx > PAGE.IW + 60 || sy < -60) return [sx, sy, 0];
-    const a = 1 - win(n, 28.0, 28.8);
+    const L = lightAt(n); if (L[2] > -.04) return [0, 0, 0];
+    const FS = 300, sx = c.x + L[0] / -L[2] * FS, sy = c.y + L[1] / -L[2] * FS;
+    if (sx < -200 || sy < -200) return [sx, sy, 0];
+    const a = clamp((-L[2] - .04) / .25);
     g.save();
     // a dimension line from the Sun out to him (how far, and how alone): drawn out from the Sun, then labelled
     const dl = Math.hypot(c.x - sx, c.y - sy), ux = (c.x - sx) / dl, uy = (c.y - sy) / dl, nx = -uy, ny = ux;
-    const d0 = 40, d1 = dl - c.R * 1.45, grow = easeOut((n - 25.35) / 1.5), dd = lerp(d0, d1, grow), off = 0;
+    const d0 = 40, d1 = dl - c.R * 1.3, grow = easeOut((n - 25.2) / .9), dd = lerp(d0, d1, grow), off = 0;
     if (grow > 0 && a > 0) {
       g.strokeStyle = rgba(GOLD_L, .42 * a); g.lineWidth = .9; g.setLineDash([5, 6]);
       g.beginPath(); g.moveTo(sx + ux * d0 + nx * off, sy + uy * d0 + ny * off); g.lineTo(sx + ux * dd + nx * off, sy + uy * dd + ny * off); g.stroke(); g.setLineDash([]);
       for (const [d, on] of [[d0, 1], [dd, grow > .98 ? 1 : 0]]) if (on) { g.beginPath(); g.moveTo(sx + ux * d - nx * 7, sy + uy * d - ny * 7); g.lineTo(sx + ux * d + nx * 7, sy + uy * d + ny * 7); g.stroke(); }
-      const la = a * win(n, 26.3, 26.9), mx = sx + ux * (d0 + d1) / 2 + nx * 16, my = sy + uy * (d0 + d1) / 2 + ny * 16;
+      const la = a * win(n, 25.6, 26.0), mx = sx + ux * (d0 + d1) / 2 + nx * 16, my = sy + uy * (d0 + d1) / 2 + ny * 16;
       if (la > 0) {
         g.save(); g.translate(mx, my); g.rotate(Math.atan2(uy, ux) + Math.PI); g.fillStyle = rgba(CREAM, .62 * la); g.font = 'italic 500 21px Cormorant';
         g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'ltr'; g.fillText('5 900 000 000 km', 0, 0); g.restore();
       }
     }
-    // the sun: a small engraved star
+    // the sun: a small engraved star (with a wide glare while it hides behind him)
     g.globalCompositeOperation = 'lighter';
+    const cg = g.createRadialGradient(sx, sy, 0, sx, sy, 260); cg.addColorStop(0, `rgba(255,236,200,${.42 * a})`); cg.addColorStop(.25, `rgba(255,210,160,${.12 * a})`); cg.addColorStop(1, 'rgba(255,200,150,0)');
+    g.fillStyle = cg; g.fillRect(sx - 260, sy - 260, 520, 520);
     const hg = g.createRadialGradient(sx, sy, 0, sx, sy, 16); hg.addColorStop(0, `rgba(255,246,222,${.9 * a})`); hg.addColorStop(.3, `rgba(255,220,160,${.25 * a})`); hg.addColorStop(1, 'rgba(255,200,140,0)');
     g.fillStyle = hg; g.beginPath(); g.arc(sx, sy, 16, 0, 7); g.fill();
     g.strokeStyle = `rgba(255,232,190,${.55 * a})`; g.lineWidth = .8;
@@ -463,8 +474,8 @@
     const swc = [(c.x - 720) / 810, (c.y - 405) / 810];
     const mw = (() => { const m = meteorAt(n, c); return m ? m.a * bump(n, M0, M1 - M0 + .1) : 0; })();
     SPACE.draw(g, { t: n, cam: [.32 - .2 * (c.x - 548) / 810, .06 - .08 * (c.y - 455) / 810], zoom: 1 + (Z - 1) * .045, neb: .34, galx: .18, gpos: [-.62, -.32],
-      cold: .78, gray: .3, bright: .8 + .08 * mw, warm: .16 * mw, swirl: .32 * sk, swc });
-    const scam = [.5 - .3 * (c.x - 548) / 810, .1 - .12 * (c.y - 455) / 810], sz = 1 + (Z - 1) * .1;
+      cold: .78, gray: .3, bright: .8 + .08 * mw, warm: .16 * mw, swirl: .32 * sk, swc, orbit: { yaw: yawAt(n), pitch: pitchAt(n), dist: 140 }, orbitPrev: { yaw: yawAt(n - .05), pitch: pitchAt(n - .05), dist: 140 } });
+    const scam = [.5 - .3 * (c.x - 548) / 810 - .9 * yawAt(n), .1 - .12 * (c.y - 455) / 810 + .5 * pitchAt(n)], sz = 1 + (Z - 1) * .1;
     g.save(); g.translate(c.x, c.y); g.rotate(rot); g.translate(-c.x, -c.y);
     if (tk < 1) STARS.draw(g, { t: n, cam: scam, zoom: sz, dim: .78, alpha: 1 - tk });
     if (tk > 0) STARS.draw(g, { t: n, cam: scam, zoom: sz, dim: .95, alpha: tk, trail: Math.max(.02, trail), swc });

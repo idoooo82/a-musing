@@ -56,6 +56,7 @@ void main(){
   // draw the living sky into rect (x,y,w,h) of context g.  o: see DEF.  cam in screen-height units.
   function draw(g, o = {}, x = 0, y = 0, w = PAGE.IW, h = PAGE.IH) {
     const v = Object.assign({}, DEF, o); v.t = (v.t || 0) + (window.AMB_OFF || 0);
+    if (o.orbit) v.cam = [v.cam[0] - (o.orbit.yaw || 0) * .55, v.cam[1] + (o.orbit.pitch || 0) * .55];   // the painted sky pans with the orbit
     gl.uniform2f(loc('res'), SW, SH);
     for (const k in v) { const val = v[k]; if (Array.isArray(val)) gl.uniform2f(loc(k), val[0], val[1]); else gl.uniform1f(loc(k), val); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);

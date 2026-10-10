@@ -22,6 +22,7 @@ html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}
     await Promise.all(['600 60px Fredoka', '60px Suez', '60px Gveret', '500 60px Frank', '800 60px Frank', '500 60px Cinzel', 'italic 500 60px Cormorant', '500 60px Cormorant'].map(f => document.fonts.load(f, 'אבג ABC')));
     buildPaper(); buildMask();
     ['pluto', 'charon'].forEach(buildTex);
+    await loadPlutoHi();
     window.READY = true;
   } catch (e) { window.ERR = String(e && e.stack || e); }
 })();

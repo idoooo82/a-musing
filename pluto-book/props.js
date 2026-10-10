@@ -70,12 +70,12 @@ let _STAMP = {};
 function stampTex(text = 'מבוטל') {
   if (_STAMP[text]) return _STAMP[text];
   const c = canvas(980, 380), x = c.getContext('2d'); x.direction = 'rtl';
-  x.strokeStyle = 'rgb(214,40,52)'; x.fillStyle = 'rgb(214,40,52)'; x.lineWidth = 18; x.beginPath(); x.roundRect(22, 22, 936, 336, 34); x.stroke();
+  x.strokeStyle = 'rgb(200,22,38)'; x.fillStyle = 'rgb(200,22,38)'; x.lineWidth = 18; x.beginPath(); x.roundRect(22, 22, 936, 336, 34); x.stroke();
   x.lineWidth = 5; x.beginPath(); x.roundRect(52, 52, 876, 276, 22); x.stroke();
   x.font = `900 228px ${FONT_TITLE}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 490, 196);
   x.globalCompositeOperation = 'destination-out'; const r = mulberry(7);
-  for (let i = 0; i < 1600; i++) { x.globalAlpha = .25 + r() * .75; x.beginPath(); x.arc(r() * 980, r() * 380, r() * 3.4, 0, 7); x.fill(); }
-  for (let i = 0; i < 26; i++) { x.globalAlpha = .2 + r() * .4; x.lineWidth = 1 + r() * 3; x.beginPath(); const y0 = r() * 380; x.moveTo(r() * 980, y0); x.lineTo(r() * 980, y0 + (r() - .5) * 40); x.stroke(); }
+  for (let i = 0; i < 700; i++) { x.globalAlpha = .2 + r() * .6; x.beginPath(); x.arc(r() * 980, r() * 380, r() * 2.6, 0, 7); x.fill(); }
+  for (let i = 0; i < 14; i++) { x.globalAlpha = .15 + r() * .3; x.lineWidth = 1 + r() * 3; x.beginPath(); const y0 = r() * 380; x.moveTo(r() * 980, y0); x.lineTo(r() * 980, y0 + (r() - .5) * 40); x.stroke(); }
   x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   return (_STAMP[text] = c);
 }

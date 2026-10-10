@@ -170,6 +170,37 @@
     };
   }
 
+  // ---------------- paparazzi: "פעם הוא היה כוכב" - only the flashes, popping from the dark around him ----------------
+  const FLASH = (() => { const r = mulberry(4711), out = [];
+    const T = [4.48, 4.6, 4.68, 4.72, 4.76, 4.83, 4.9, 4.95, 5.03, 5.08, 5.15, 5.24, 5.3, 5.38, 5.47, 5.56, 5.68, 5.82, 5.97];
+    T.forEach((t, i) => { const a = (i % 2 ? -1 : 1) * (.35 + r() * 1.25) + (r() < .5 ? 0 : Math.PI);    // left / right, mostly low
+      const d = 230 + r() * 330; out.push({ t: t + (r() - .5) * .03, dx: Math.cos(a) * d, dy: Math.abs(Math.sin(a)) * d * (r() < .78 ? .55 : -.45) + 60, s: .7 + r() * .6 }); });
+    return out; })();
+  const flashK = (f, n) => { const u = n - f.t; return u < 0 || u > .32 ? 0 : (u < .025 ? u / .025 : Math.exp(-(u - .025) * 16)); };
+  function flashLight(n) {                                                  // the strongest flash lights his face
+    let best = null, bk = 0;
+    for (const f of FLASH) { const k = flashK(f, n) * f.s; if (k > bk) { bk = k; best = f; } }
+    if (!best || bk < .02) return null;
+    const L = Math.hypot(best.dx, best.dy, 420);
+    return { dir: [best.dx / L, best.dy / L, 420 / L], col: [255, 250, 244], k: 1.25 * bk };
+  }
+  function drawFlashes(g, n, X, Y) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    let tot = 0;
+    for (const f of FLASH) {
+      const k = flashK(f, n) * f.s; if (k <= .01) continue; tot += k;
+      const x = X + f.dx, y = Y + f.dy, R = 240 * f.s;
+      const gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, `rgba(255,255,255,${.95 * k})`); gr.addColorStop(.08, `rgba(240,246,255,${.6 * k})`);
+      gr.addColorStop(.35, `rgba(190,215,255,${.12 * k})`); gr.addColorStop(1, 'rgba(180,210,255,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, R, 0, 7); g.fill();
+      glint(g, x, y, 60 * f.s * (.6 + .4 * k), k, [255, 255, 255]); glint(g, x, y, 22 * f.s, k, [255, 255, 255]);                    // the crisp cross of a camera flash
+      g.strokeStyle = `rgba(235,242,255,${.35 * k})`; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x - 200 * f.s * k, y); g.lineTo(x + 200 * f.s * k, y); g.stroke();       // a thin anamorphic streak
+    }
+    if (tot > 0) { g.fillStyle = `rgba(214,226,255,${Math.min(.2, .11 * tot)})`; g.fillRect(0, 0, PAGE.IW, PAGE.IH); }   // the whole sky blinks
+    g.restore();
+  }
+
   // ---------------- the margin: astronomer + brass telescope (page coordinates) ----------------
   const M = [114, 852], MS = 96, MU = MS / 100;                           // his feet, his height (he's tiny)
   const EYE = [M[0] + 13.5 * MU, M[1] - 80 * MU];                          // eyepiece position
@@ -313,6 +344,7 @@
     plate: { lat: 'TABVLA I · VIA STELLARVM', he: 'שדרת הכוכבים' },
     ill(g, n, lt) {
       const c = cam(n), po = plutoOpts(n), cool = win(n, 9.85, 11.0);
+      const fl = flashLight(n); if (fl && (!po.light2 || fl.k > po.light2.k)) po.light2 = fl;
       const starGold = starGoldAt(n);
       const sp = { warm: lerp(.22, .05, cool), cold: .22 * cool, neb: .55 };
       AVENUE.draw(g, n, c, {
@@ -325,6 +357,7 @@
           HOPS.forEach((T, i) => { const b = bump(n, T - .12, .5); if (b > 0) glint(gg, X + (i - 1) * 9 * cc.z, Y - 6 * cc.z, 10 * cc.z * b, .8 * b, [255, 236, 190]); });
         },
       });
+      if (n > 4.4 && n < 6.2) { const [FX, FY] = plutoPlate(n); drawFlashes(g, n, FX, FY); }
       // the hole at the edge of the universe
       const hk = win(n, W_EDGE - .15, 11.8), A = .3 * Math.pow(hk, 1.2), dep = win(n, W_EDGE, W_HOLE + .6);
       if (hk > .002) hole(g, n, c, sp, A, dep, 0, win(n, W_EDGE + .2, W_HOLE + .3));

@@ -84,8 +84,8 @@
   }
 
   // ---------------- the giant stamp ----------------
-  const MK = { y: -.645, s: .27, rot: -.13 };                // the ink mark on Pluto (relative to his centre, r units)
-  const SS = 1.32;                                            // stamp tool scale (rubber = 220 * SS px)
+  const MK = { y: -.62, s: .33, rot: -.13 };                // the ink mark on Pluto (relative to his centre, r units)
+  const SS = 1.5;                                             // stamp tool scale (rubber = 220 * SS px)
   function stampState(n) {
     if (n < 15.5 || n > 16.66) return null;
     const [px, py] = plutoPos(Math.min(n, T_HIT)), hx = px, hy = py + MK.y * PR + 40;      // rubber covers the mark at impact
@@ -182,6 +182,9 @@
       g.globalCompositeOperation = 'multiply';
       g.translate(0, MK.y * r); g.scale(1, .86);
       drawStampMark(g, 0, 0, MK.s, MK.rot, .96);
+      // ...and a second, opaque coat: wet ink sitting ON him (with a hair of thickness), not a stain in the ice
+      g.globalCompositeOperation = 'source-over'; g.shadowColor = 'rgba(60,0,10,.55)'; g.shadowBlur = 1.5; g.shadowOffsetX = 1; g.shadowOffsetY = 1.5;
+      drawStampMark(g, 0, 0, MK.s, MK.rot, .62 * clamp((n - T_HIT) / .06));
     }
     g.restore();
   }

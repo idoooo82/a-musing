@@ -17,7 +17,7 @@
       const cam = camAt(n), G = gold(n);
       AVENUE.draw(g, n, cam, {
         space: { warm: .55 * G, gold: .35 * G, neb: .55 + .2 * G },
-        pluto: { light: [.68, -.48], lightCol: [1, .97 - .05 * G, .9 - .15 * G], glow: .2 + .55 * G, gold: G, face: plutoFace(n),
+        pluto: { spin: 2 * Math.PI * (u => u * u * u * (u * (u * 6 - 15) + 10))(clamp((n - 60.3) / 1.3)), light: [.68, -.48], lightCol: [1, .97 - .05 * G, .9 - .15 * G], glow: .2 + .55 * G, gold: G, face: plutoFace(n),
                  light2: { dir: [-.5, .6], col: [255, 200, 110], k: .7 * G } },
         plaque: { pluto: { gold: win(n, 60.6, 61.5), glow: .4 + .5 * G } },
         plutoSpot: 0, charon: false,

@@ -120,6 +120,9 @@ put(sfx, page_turn(), F(3.75) + .05, -.2)
 # --- 5.75..13.3 the avenue: wonder; the astronomer interrupts
 chord(D_, F(3.4), 2.5, .05, .08); arp(D_, F(3.6), 2.4, .55, .07); chord(Bm, F(5.9), 1.0, .045, .07)
 for k in range(6): put(sfx, celesta(m2f(98 + (k % 3) * 2), .8, .03), F(5.55) + k * .16, -.5 + k * .1)     # comet visitors hop
+for i, w in enumerate([4.48, 4.6, 4.68, 4.72, 4.76, 4.83, 4.9, 4.95, 5.03, 5.08, 5.15, 5.24, 5.3, 5.38, 5.47, 5.56, 5.68, 5.82, 5.97]):   # paparazzi: soft shutters
+    x = noise(.05, 2500, 9000) * np.exp(-tt(.05) * 90); c2 = noise(.03, 1800, 7000) * np.exp(-tt(.03) * 120); o = int(.018 * SR); x[o:o + len(c2)] += c2[:len(x) - o]
+    put(sfx, x * .07 * (.6 + .4 * ((i * 7) % 5) / 4), F(w) - .01, ((i * 37) % 13) / 6.5 - 1)
 # the astronomer: music stops, a pompous little bassoon figure
 for m, t0 in ((74, F(6.68)), (79, F(6.98)), (78, F(7.26)), (83, F(7.6))): put(mus, musicbox(m2f(m), 2.4, .07), t0, .3)
 put(sfx, tick(5200, .06), F(8.66), .4)                                                                   # "פירור" tiny pip
@@ -146,6 +149,7 @@ put(sfx, thump(55, 1.4, .55), F(22.64)); chord(Dm, F(22.64), 2.0, .05, .09, .05,
 x = tt(.7); f = 520 * np.exp(-x * 1.1); put(mus, np.sin(2 * np.pi * np.cumsum(f) / SR) * env(len(x), .01, .3) * .06, F(24.18), .3)   # tag drops (little descending slide)
 # --- 27..38.3 sadness
 put(sfx, page_turn(), F(25.0), -.2)
+put(sfx, whoosh(2.6, 180, 900, .07), F(25.45), .6); put(sfx, whoosh(1.4, 900, 260, .05), F(26.9), -.6)      # the camera circles him
 chord(Dm, F(25.7), 3.0, .05, .07, 1.5, 2); chord(Bb, F(28.4), 2.2, .05, .07); chord(Gm, F(30.6), 2.4, .05, .07); chord(A7, F(33.0), 3.0, .05, .07)
 melody([(74, 1.5), (72, .5), (70, 1), (69, 2)], F(26.0), B, amp=.07, detune=.006)                       # lonely, slightly out of tune
 ice(F(28.6), 2.0, 14, .045); put(sfx, noise(1.0, 400, 2500) * np.sin(np.pi * tt(1.0)) * .05, F(29.3), 0)   # thin air
@@ -154,6 +158,7 @@ put(sfx, noise(.6, 2000, 8000) * (rng.random(int(.6 * SR)) < .01) * .5, F(33.4),
 put(sfx, whoosh(1.4, 200, 1800, .14), F(34.95), -.4); put(sfx, whoosh(1.2, 1800, 200, .10), F(35.6), .4)  # spin
 # --- 38.3..48.4 calm -> inner strength -> comet
 put(sfx, page_turn(), F(36.3), -.2)
+put(sfx, whoosh(1.9, 150, 700, .06), F(39.3), 0)                                                     # the dive in (deep inside)
 for k in range(5): heartbeat(F(37.4) + k * 1.05, .22 + .03 * k)
 chord(Bb, F(37.2), 2.2, .045, .06, 1.5); chord(F_, F(39.3), 2.2, .05, .07, 1.5, st=True); chord(C_, F(41.5), 2.6, .05, .07, 1.2, st=True)
 put(sfx, harp(m2f(76), .6, .12), F(42.38), .3); put(sfx, noise(.5, 1500, 6000) * np.sin(np.pi * tt(.5) / .5) * .08, F(42.45), .5)   # string snaps, tag flutters
