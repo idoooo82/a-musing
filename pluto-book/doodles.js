@@ -6,30 +6,90 @@
 const DOODLE = (() => {
   // ---------- hands (drawing instruments) ----------
   const HANDS = {
-    pencil: { col: [70, 70, 82], a: .42, w: 1.5, jit: 1.1, passes: 2, grain: .55 },
-    pen: { col: [38, 58, 140], a: .5, w: 1.25, jit: .6, passes: 1, grain: .12 },
-    red: { col: [176, 58, 58], a: .4, w: 1.7, jit: 1.0, passes: 2, grain: .45 },
-    crayon: { col: [214, 120, 40], a: .38, w: 3.6, jit: 1.6, passes: 2, grain: .7 },
+    hb: { col: [74, 74, 86], a: .46, w: 1.4, grain: .5 },
+    soft: { col: [50, 50, 58], a: .5, w: 2.6, grain: .62, smudge: .4 },
+    hard: { col: [112, 112, 124], a: .34, w: .9, grain: .4 },
+    ballpoint: { col: [36, 56, 140], a: .56, w: 1.1, grain: .1, blob: 1 },
+    felt: { col: [32, 30, 38], a: .5, w: 2.4, grain: .06 },
+    red: { col: [176, 58, 58], a: .42, w: 1.6, grain: .45 },
+    gel: { col: [120, 70, 160], a: .48, w: 1.5, grain: .1, blob: 1 },
+    crayon: { col: [214, 120, 40], a: .4, w: 4.4, grain: .75 },
+    green: { col: [70, 140, 84], a: .38, w: 4.0, grain: .75 },
   };
-  // a sketchy polyline: each pass wobbles a little differently; ends overshoot like a real hand
+  // ---------- the person holding it: every doodle gets its own hand ----------
+  //  kid      - wonky proportions, heavy uneven pressure, sometimes coloured in past the lines
+  //  shaky    - a slow trembling line
+  //  sketchy  - several light searching passes
+  //  quick    - one fast pass, overshooting ends, a line that runs out early
+  //  careful  - slow and fairly clean (still a hand)
+  const STYLES = {
+    kid: { wonk: 6, trem: .7, tf: .09, press: .9, passes: 1, jit: .6, over: 2, drop: .1 },
+    shaky: { wonk: 1.5, trem: 1.9, tf: .22, press: .5, passes: 1, jit: .4, over: 1, drop: .05 },
+    sketchy: { wonk: 2, trem: .5, tf: .1, press: .6, passes: 3, jit: 2.2, over: 4, drop: .05 },
+    quick: { wonk: 2.5, trem: .3, tf: .05, press: .7, passes: 1, jit: .5, over: 7, drop: .25 },
+    careful: { wonk: .8, trem: .35, tf: .12, press: .35, passes: 1, jit: .3, over: 1, drop: 0 },
+  };
+  let P = null;                                            // the current doodle's personality
+  function resample(q, step) {
+    const o = [q[0]];
+    for (let i = 1; i < q.length; i++) {
+      const [ax, ay] = q[i - 1], [bx, by] = q[i], L = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.ceil(L / step));
+      for (let k = 1; k <= n; k++) o.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]);
+    }
+    return o;
+  }
   function stroke(g, pts, h, r, closed = false) {
-    for (let p = 0; p < h.passes; p++) {
-      const j = h.jit * (p ? 1.6 : 1), q = pts.map(([x, y]) => [x + (r() - .5) * j * 2, y + (r() - .5) * j * 2]);
-      if (closed) q.push([q[0][0] + (r() - .5) * 4, q[0][1] + (r() - .5) * 4]);
-      g.lineWidth = h.w * (.75 + r() * .5); g.globalAlpha = h.a * (p ? .55 : 1);
-      g.beginPath(); g.moveTo(q[0][0], q[0][1]);
-      for (let i = 1; i < q.length - 1; i++) g.quadraticCurveTo(q[i][0], q[i][1], (q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2);
-      g.lineTo(q[q.length - 1][0], q[q.length - 1][1]); g.stroke();
+    if (P.limit !== undefined && P.n >= P.limit) return;      // unfinished: the reader stopped here
+    P.n++;
+    let q = pts.map(p => p.slice()); if (closed) q.push([pts[0][0] + (r() - .5) * 5, pts[0][1] + (r() - .5) * 5]);
+    if (P.wonk) {                                            // each part drawn a little off, a little the wrong size
+      let cx = 0, cy = 0; for (const p of q) { cx += p[0]; cy += p[1]; } cx /= q.length; cy /= q.length;
+      const s = 1 + (r() - .5) * P.wonk * .05, ox = (r() - .5) * P.wonk, oy = (r() - .5) * P.wonk, rot = (r() - .5) * P.wonk * .02, c = Math.cos(rot), sn = Math.sin(rot);
+      q = q.map(([x, y]) => { const dx = (x - cx) * s, dy = (y - cy) * s; return [cx + dx * c - dy * sn + ox, cy + dx * sn + dy * c + oy]; });
+    }
+    if (q.length > 1 && P.over) {                            // ends run past the corner, or stop short
+      const e = q.length - 1, [ax, ay] = q[e - 1], [bx, by] = q[e], L = Math.hypot(bx - ax, by - ay) || 1, k = (r() - .3) * P.over;
+      q[e] = [bx + (bx - ax) / L * k, by + (by - ay) / L * k];
+    }
+    let R = resample(q, 2.2);
+    const cut = (P.limit !== undefined && P.n === P.limit) ? .35 + r() * .4 : (r() < P.drop ? .55 + r() * .35 : 1);
+    if (cut < 1) R = R.slice(0, Math.max(2, Math.floor(R.length * cut)));
+    const N = R.length;
+    for (let pass = 0; pass < P.passes; pass++) {
+      const s1 = r() * 100, s2 = r() * 100, s3 = r() * 100, jx = (r() - .5) * P.jit * (pass ? 2 : 1), jy = (r() - .5) * P.jit * (pass ? 2 : 1);
+      const A = h.a * (pass ? .5 : 1) * (.8 + .4 * r());
+      let px = null, py = null;
+      for (let i = 0; i < N; i++) {
+        const x = R[i][0] + jx + P.trem * 2 * (vnoise2(i * P.tf, s1) - .5), y = R[i][1] + jy + P.trem * 2 * (vnoise2(i * P.tf, s2) - .5);
+        if (px !== null) {
+          const pr = 1 + P.press * (vnoise2(i * .045, s3) - .5) * 1.6, tp = .45 + .55 * Math.min(1, i / 5, (N - i) / 5);
+          g.lineWidth = Math.max(.35, h.w * pr * tp); g.globalAlpha = Math.min(1, A * (.75 + .5 * pr * tp));
+          g.beginPath(); g.moveTo(px, py); g.lineTo(x, y); g.stroke();
+        } else if (h.blob && r() < .5) { g.globalAlpha = A; g.fillStyle = g.strokeStyle; g.beginPath(); g.arc(x, y, h.w * .9, 0, 7); g.fill(); }
+        px = x; py = y;
+      }
     }
     g.globalAlpha = 1;
   }
   const circ = (cx, cy, rx, ry = rx, a0 = 0, a1 = 6.283, n = 28) => { const o = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; o.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return o; };
   function hatch(g, h, r, clipFn, x0, y0, x1, y1, step = 6, ang = .9) {
     g.save(); g.beginPath(); clipFn(); g.clip();
-    const L = Math.hypot(x1 - x0, y1 - y0), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, c = Math.cos(ang), s = Math.sin(ang);
-    for (let t = -L / 2; t < L / 2; t += step * (.8 + r() * .5)) stroke(g, [[cx + c * t - s * L / 2, cy + s * t + c * L / 2], [cx + c * t + s * L / 2, cy + s * t - c * L / 2]], Object.assign({}, h, { a: h.a * .5, passes: 1, w: h.w * .7 }), r);
-    g.restore();
+    const L = Math.hypot(x1 - x0, y1 - y0), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, c = Math.cos(ang), s = Math.sin(ang), lim = P.limit; P.limit = undefined;
+    for (let t = -L / 2; t < L / 2; t += step * (.8 + r() * .6)) if (r() < .85) stroke(g, [[cx + c * t - s * L / 2, cy + s * t + c * L / 2], [cx + c * t + s * L / 2, cy + s * t - c * L / 2]], Object.assign({}, h, { a: h.a * .5, w: h.w * .7 }), r);
+    P.limit = lim; g.restore();
   }
+  // messy colouring-in: a back-and-forth zigzag over an area, spilling past the outline
+  function scribble(g, h, r, cx, cy, rx, ry) {
+    const pts = [], n = 9 + (r() * 6 | 0), ang = (r() - .5) * 1.2, c = Math.cos(ang), s = Math.sin(ang);
+    for (let i = 0; i <= n; i++) {
+      const v = -1 + 2 * i / n, half = Math.sqrt(Math.max(0, 1 - v * v)) * 1.12;
+      for (const side of (i % 2 ? [1, -1] : [-1, 1])) { const x = side * half * rx * (.85 + r() * .25), y = v * ry; pts.push([cx + x * c - y * s, cy + x * s + y * c]); }
+    }
+    const keep = P.limit; P.limit = undefined;
+    stroke(g, r() < .4 ? pts.slice(0, Math.floor(pts.length * (.5 + r() * .4))) : pts, Object.assign({}, h, { a: h.a * .55 }), r);
+    P.limit = keep;
+  }
+  const FILL = { ringed: [0, 0, 28, 28], meteor: [0, 0, 16, 15], ufo: [0, -4, 44, 14], alien: [0, -20, 24, 22], heart: [0, -2, 14, 11], moon: [-8, 0, 20, 30], rocket: [0, -16, 13, 36], sputnik: [0, 0, 11, 11] };
   // ---------- the doodles (local coords, ~100 px tall) ----------
   const D = {
     rocket(g, h, r) {
@@ -71,8 +131,8 @@ const DOODLE = (() => {
       stroke(g, [[34, -32], [34, -70]], h, r); stroke(g, [[34, -70], [60, -62], [34, -54]], h, r);     // planting a little flag
     },
     moon(g, h, r) {
-      stroke(g, [...circ(0, 0, 34, 34, -1.9, 1.9, 18), ...circ(14, 0, 26, 30, 1.6, -1.6, 18).reverse()], h, r);
-      stroke(g, [[-14, -8], [-6, -6]], h, r); stroke(g, circ(-6, 10, 6, 3, .3, 2.8, 6), h, r);
+      stroke(g, [...circ(0, 0, 34, 34, Math.PI * .38, Math.PI * 1.62, 20), ...circ(15, -2, 27, 29, Math.PI * 1.5, Math.PI * .5, 18)], h, r);
+      stroke(g, [[-24, -6], [-17, -4]], h, r); stroke(g, circ(-19, 8, 5, 3, .3, 2.8, 6), h, r);
       stroke(g, [[22, -30], [32, -30], [22, -40], [32, -40]], h, r);                                        // z z
     },
     stars(g, h, r) {
@@ -89,9 +149,13 @@ const DOODLE = (() => {
   };
   const NOTES = ['פלוטו אתה כוכב!', 'גם אני קטן', 'היה פה נועם', '9 כוכבי לכת!', 'פלוטו + שרון', 'חייזר = חבר', 'למה?!', 'הכי חמוד'];
   function note(g, h, r, text) {
-    g.save(); g.fillStyle = rgba(h.col, h.a * 1.25); g.font = `${30 + r() * 10 | 0}px Gveret`; g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(text, 0, 0); g.restore();
-    if (r() < .5) stroke(g, [[-70, 22], [70, 20]], Object.assign({}, h, { a: h.a * .6 }), r);   // a wobbly underline
+    const size = 28 + r() * 14 | 0; g.save(); g.fillStyle = rgba(h.col, Math.min(1, h.a * 1.3)); g.font = `${size}px Gveret`; g.direction = 'rtl'; g.textBaseline = 'middle';
+    const ch = [...text], ws = ch.map(c => g.measureText(c).width), tot = ws.reduce((a, b) => a + b, 0);
+    let x = tot / 2, drift = 0;                                       // right to left, each letter its own size and tilt
+    ch.forEach((c, i) => { drift += (r() - .5) * 1.6; g.save(); g.translate(x - ws[i] / 2, drift + (r() - .5) * 2.5); g.rotate((r() - .5) * .14); const s = .9 + r() * .22; g.scale(s, s);
+      g.globalAlpha = .75 + r() * .25; g.textAlign = 'center'; g.fillText(c, 0, 0); g.restore(); x -= ws[i] * (.95 + r() * .12); });
+    g.restore();
+    if (r() < .45) stroke(g, [[-tot / 2 - 6, size * .62], [0, size * .6 + (r() - .5) * 4], [tot / 2 + 4, size * .58]], Object.assign({}, h, { a: h.a * .6 }), r);
   }
   // grain: pencil and crayon break up on the paper's tooth
   let GR = null;
@@ -108,22 +172,44 @@ const DOODLE = (() => {
   const BUSY = { s1: 1, s3: 1, s7: 1 };                       // pages whose lower-left margin carries the story's own figures
   const KINDS = Object.keys(D);
   const cache = {};
+  function drawOne(kind, hd, r, isNote, noteText) {
+    const S = 360, c = canvas(S, S), g = c.getContext('2d');
+    g.translate(S / 2, S / 2); g.strokeStyle = rgba(hd.col, 1); g.fillStyle = rgba(hd.col, 1); g.lineCap = 'round'; g.lineJoin = 'round';
+    if (isNote) note(g, hd, r, noteText); else D[kind](g, hd, r);
+    return c;
+  }
   function layer(key, w, h, slots, seed, count, notes) {
     if (cache[key]) return cache[key];
     const out = canvas(w, h), og = out.getContext('2d'), r = mulberry(seed);
     const order = slots.map((s, i) => [r(), i]).sort((a, b) => a[0] - b[0]).map(a => a[1]).slice(0, count);
-    const hands = Object.keys(HANDS);
-    const per = {}; for (const hn of hands) { per[hn] = canvas(w, h); }
-    const used = new Set();
+    const hands = Object.keys(HANDS), styles = Object.keys(STYLES), used = new Set(), usedH = new Set();
     order.forEach((si, k) => {
-      const [x, y] = slots[si], hn = hands[(seed + k * 3 + (r() * 4 | 0)) % hands.length], hd = HANDS[hn], g = per[hn].getContext('2d');
-      g.save(); g.translate(x + (r() - .5) * 30, y + (r() - .5) * 24); g.rotate((r() - .5) * .5); const sc = .85 + r() * .45; g.scale(sc, sc);
-      g.strokeStyle = rgba(hd.col, 1); g.lineCap = 'round'; g.lineJoin = 'round';
-      if (notes && k === 1) note(g, hd, r, NOTES[(seed * 7 + k) % NOTES.length]);
-      else { let ki = (seed * 5 + k * 3 + (r() * 3 | 0)) % KINDS.length; while (used.has(ki)) ki = (ki + 1) % KINDS.length; used.add(ki); D[KINDS[ki]](g, hd, r); }
-      g.restore();
+      let hn = hands[(r() * hands.length) | 0]; for (let t = 0; t < 4 && usedH.has(hn); t++) hn = hands[(r() * hands.length) | 0]; usedH.add(hn);
+      const hd = HANDS[hn], st = styles[(r() * styles.length) | 0];
+      P = Object.assign({ n: 0 }, STYLES[st]);
+      if (r() < .3) P.limit = 3 + (r() * 5 | 0);                              // left unfinished
+      const isNote = notes && k === 1;
+      let ki = (seed * 5 + k * 3 + (r() * 3 | 0)) % KINDS.length; while (used.has(ki)) ki = (ki + 1) % KINDS.length; used.add(ki);
+      const kind = KINDS[ki];
+      let c = drawOne(kind, hd, r, isNote, NOTES[(seed * 7 + k) % NOTES.length]);
+      const cg = c.getContext('2d');
+      // coloured in (mostly kids, crayon or felt over the outline)
+      if (!isNote && FILL[kind] && P.limit === undefined && (st === 'kid' ? r() < .7 : r() < .2)) {
+        const fh = HANDS[['crayon', 'green', 'red', 'gel'][(r() * 4) | 0]], keep = P; P = Object.assign({ n: 0 }, STYLES.kid);
+        cg.save(); cg.translate(180, 180); cg.strokeStyle = rgba(fh.col, 1); cg.lineCap = 'round'; cg.lineJoin = 'round';
+        const [fx, fy, rx, ry] = FILL[kind]; scribble(cg, fh, r, fx, fy, rx, ry); cg.restore(); P = keep;
+      }
+      grain(c, hd.grain * (.8 + r() * .4));
+      const sc = (isNote ? 1 : .7 + r() * .65), rot = (r() - .5) * .6, [x, y] = slots[si], X = x + (r() - .5) * 34, Y = y + (r() - .5) * 26;
+      og.save(); og.translate(X, Y); og.rotate(rot); og.scale(sc, sc);
+      if (hd.grain > .3 && r() < .3) {                                       // an earlier attempt, rubbed out: a grey ghost and eraser smudge
+        og.save(); og.globalAlpha = .16; og.filter = 'blur(1.6px)'; og.translate(10 + r() * 14, -8 - r() * 10); og.rotate((r() - .5) * .3); og.drawImage(c, -180, -180); og.restore();
+        og.save(); og.globalAlpha = .07; og.fillStyle = 'rgb(120,110,100)'; og.filter = 'blur(10px)'; og.beginPath(); og.ellipse(16, -10, 70, 40, r(), 0, 7); og.fill(); og.restore();
+      }
+      if (hd.smudge) { og.save(); og.globalAlpha = hd.smudge * .35; og.filter = 'blur(2.5px)'; og.drawImage(c, -178, -177); og.restore(); }   // soft graphite smears a little
+      og.drawImage(c, -180, -180);
+      og.restore();
     });
-    for (const hn of hands) { grain(per[hn], HANDS[hn].grain); og.drawImage(per[hn], 0, 0); }
     return (cache[key] = out);
   }
   // draw on the reading page (page units), under the story's own margin drawings
