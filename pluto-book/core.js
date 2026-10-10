@@ -199,8 +199,9 @@ window.renderPage = function (k, n) {
     window.BOOKZ = z; window._BOOKZ_PREV = bookZoom(s, n - .05);
     P.fillStyle = '#000'; P.fillRect(0, 0, W, H);
     const [BS, BX, BY] = bookXf(z); P.setTransform(BS, 0, 0, BS, BX, BY);
-    if (z < .999) { P.save(); P.scale(1 / BOOK.SB, 1 / BOOK.SB); P.translate(-BOOK.X0, -BOOK.Y0); P.drawImage(deskTex(), 0, 0); P.restore(); }
+    if (z < .999) { P.save(); P.scale(1 / BOOK.SB, 1 / BOOK.SB); P.translate(-BOOK.X0, -BOOK.Y0); P.drawImage(deskTex(), 0, 0); DOODLE.facing(P, s.id, k); P.restore(); }
     P.drawImage(PAPER, 0, 0);
+    DOODLE.page(P, s.id, k, z);
     composeFrame(P, s, n);
     if (s.text) drawTextLine(P, n, Object.assign({}, s.textOpt || {}, { alpha: 1 - ease(z * 1.6) }));
     if (s.over) { P.save(); s.over(P, n, n - s.start); P.restore(); }
