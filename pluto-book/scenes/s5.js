@@ -570,10 +570,12 @@
       const pa = proj(-.5, .3, spin(n) + yawAt(n));
       note(g, 'aurum intus', c.x - 1.5 * c.R, c.y + .66 * c.R, c.x + pa[0] * c.R, c.y + pa[1] * c.R, a1, 'right', g1, [240, 214, 160]);
     },
+    overRaw: n => n >= ON_PAPER,                                        // (no-book mode) Pluto himself is drawn here: keep his colours
     over(p, n) {
       if (n < ON_PAPER) return;
       const c = cam(n), C = cometAt(n, c), X = PAGE.IX + c.x, Y = PAGE.IY + c.y;
       // outside the plate (the left margin he breaks out into) the comet is printed on the paper: gold leaf and blue ink
+      if (!NOBOOK) {                                                     // (no-book mode: no paper to print on)
       p.save(); p.beginPath(); p.rect(0, 58, PAGE.IX, 847); p.clip();
       p.translate(PAGE.IX, PAGE.IY);
       drawDust(p, n, 'ink');
@@ -585,6 +587,7 @@
         p.beginPath(); p.ellipse(X + c.R * .16, Y + c.R * .22, c.R * .98, c.R * .94, 0, 0, 7); p.fill(); p.filter = 'none';
       }
       p.restore();
+      }
       if (X + c.R * 1.25 <= 0) return;
       // he is painted once; inside the plate with his haze, on the paper only his disc (no light halo on paper)
       const P = plutoOpts(n, c), S = Math.ceil(c.R * 3.6), sq = P.squash;

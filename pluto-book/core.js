@@ -226,7 +226,7 @@ function renderNoBook(k, n) {
   if (z < .999) { T2.globalCompositeOperation = 'destination-out'; T2.globalAlpha = 1 - z; T2.drawImage(edgeMask(), 0, 0); T2.globalCompositeOperation = 'source-over'; T2.globalAlpha = 1; }
   P.drawImage(TMP2, PAGE.IX, PAGE.IY);
   P.setTransform(1, 0, 0, 1, 0, 0);
-  if (s.over) P.drawImage(chalkOver(s, n, xf), 0, 0);
+  if (s.over) { if (s.overRaw && s.overRaw(n)) { P.save(); P.setTransform(...xf); s.over(P, n, n - s.start); P.restore(); } else P.drawImage(chalkOver(s, n, xf), 0, 0); }
   if (typeof DEEP !== 'undefined' && s.near !== false) { P.setTransform(...xf); DEEP.near(P, n + (window.AMB_OFF || 0), 1); P.setTransform(1, 0, 0, 1, 0, 0); }
   if (s.text) drawSubtitle(P, n, 1);
   return true;
