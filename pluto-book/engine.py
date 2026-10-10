@@ -12,7 +12,7 @@ class Engine:
         self.errors = []
         self.pg.on('console', lambda m: self.errors.append(m.text) if m.type == 'error' else None)
         self.pg.on('pageerror', lambda e: self.errors.append(str(e)))
-        self.pg.goto('file://' + D + '/film.html')
+        self.pg.goto('file://' + D + '/film.html' + ('?nobook' if os.environ.get('NOBOOK') else ''))
         for _ in range(600):
             st = self.pg.evaluate('[window.READY||false, window.ERR||null]')
             if st[0] or st[1]: break

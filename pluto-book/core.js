@@ -182,7 +182,57 @@ function drawSubtitle(p, n, a) {
   p.save(); const gr = p.createLinearGradient(0, H - 250, 0, H); gr.addColorStop(0, 'rgba(4,6,16,0)'); gr.addColorStop(1, `rgba(4,6,16,${.6 * a})`); p.fillStyle = gr; p.fillRect(0, H - 250, W, 250); p.restore();
   drawTextLine(p, n, { y: H - 82, size: 50, alpha: a, ink: [250, 241, 224], faint: [190, 180, 160], emph: { gold: [246, 206, 120], warm: [255, 190, 170] }, shadow: true });
 }
+// ---------- NO-BOOK mode (film.html?nobook): the same film as one continuous space - no paper, frame, desk or page turns ----------
+const NOBOOK = location.search.includes('nobook');
+let _EDGE = null, _OV = null;
+function edgeMask() {                                    // alpha 1 at the plate's border, fading to 0 inward: lets the plate melt into space
+  if (_EDGE) return _EDGE; const c = canvas(PAGE.IW, PAGE.IH), x = c.getContext('2d'), F = 200;
+  for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, 0, F, 0, 0, 0, F, PAGE.IH], [PAGE.IW, 0, PAGE.IW - F, 0, PAGE.IW - F, 0, F, PAGE.IH], [0, 0, 0, F, 0, 0, PAGE.IW, F], [0, PAGE.IH, 0, PAGE.IH - F, 0, PAGE.IH - F, PAGE.IW, F]]) {
+    const g = x.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.globalCompositeOperation = 'lighter'; x.fillRect(rx, ry, rw, rh);
+  }
+  return (_EDGE = c);
+}
+const TMP2 = canvas(PAGE.IW, PAGE.IH), T2 = TMP2.getContext('2d');
+function spaceVoid(p, n, a = 1) {                       // the dark sky around the picture (page units)
+  p.fillStyle = '#05060f'; p.fillRect(-W, -H, 3 * W, 3 * H);
+  SPACE.draw(p, { t: n, neb: .34, galx: 0, bright: .68 * a, cold: .25, noDeep: true }, 0, 0, W, H);
+}
+// margin drawings: the ink figures are re-inked in pale chalk so they read on the dark sky; brass, gold and red keep their colour
+function chalkOver(s, n, xf) {
+  if (!_OV) _OV = canvas(W, H); const o = _OV.getContext('2d', { willReadFrequently: true });
+  o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, W, H); o.setTransform(...xf);
+  o.save(); s.over(o, n, n - s.start); o.restore();
+  o.setTransform(1, 0, 0, 1, 0, 0);
+  const id = o.getImageData(0, 0, W, H), d = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue; const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx < 120 && mx - mn < 70) { d[i] = 238; d[i + 1] = 228; d[i + 2] = 206; }
+  }
+  o.putImageData(id, 0, 0); return _OV;
+}
+function renderNoBook(k, n) {
+  const s = SCENES[k];
+  P.setTransform(1, 0, 0, 1, 0, 0); P.globalAlpha = 1; P.globalCompositeOperation = 'source-over'; P.filter = 'none';
+  if (s.layout === 'full') { window.BOOKZ = 0; window._BOOKZ_PREV = 0; spaceVoid(P, n); s.page(P, n, n - s.start); return true; }
+  const z = bookZoom(s, n), Z = 1 + z * (ZFULL - 1), cxp = PAGE.IX + PAGE.IW / 2, cyp = PAGE.IY + PAGE.IH / 2;
+  window.BOOKZ = z; window._BOOKZ_PREV = bookZoom(s, n - .05);
+  const xf = [Z, 0, 0, Z, cxp - cxp * Z, (cyp + (H / 2 - cyp) * z) - cyp * Z];
+  P.fillStyle = '#05060f'; P.fillRect(0, 0, W, H);
+  P.setTransform(...xf);
+  if (z < .999) spaceVoid(P, n);
+  IG.setTransform(1, 0, 0, 1, 0, 0); IG.globalAlpha = 1; IG.globalCompositeOperation = 'source-over'; IG.filter = 'none'; IG.clearRect(0, 0, ILL.width, ILL.height);
+  IG.setTransform(ILLS, 0, 0, ILLS, 0, 0); IG.save(); s.ill(IG, n, n - s.start); IG.restore();
+  T2.setTransform(1, 0, 0, 1, 0, 0); T2.globalCompositeOperation = 'source-over'; T2.globalAlpha = 1; T2.clearRect(0, 0, PAGE.IW, PAGE.IH); T2.drawImage(ILL, 0, 0, PAGE.IW, PAGE.IH);
+  if (z < .999) { T2.globalCompositeOperation = 'destination-out'; T2.globalAlpha = 1 - z; T2.drawImage(edgeMask(), 0, 0); T2.globalCompositeOperation = 'source-over'; T2.globalAlpha = 1; }
+  P.drawImage(TMP2, PAGE.IX, PAGE.IY);
+  P.setTransform(1, 0, 0, 1, 0, 0);
+  if (s.over) P.drawImage(chalkOver(s, n, xf), 0, 0);
+  if (typeof DEEP !== 'undefined' && s.near !== false) { P.setTransform(...xf); DEEP.near(P, n + (window.AMB_OFF || 0), 1); P.setTransform(1, 0, 0, 1, 0, 0); }
+  if (s.text) drawSubtitle(P, n, 1);
+  return true;
+}
 window.renderPage = function (k, n) {
+  if (NOBOOK) return renderNoBook(k, n);
   const s = SCENES[k]; P.setTransform(1, 0, 0, 1, 0, 0); P.globalAlpha = 1; P.globalCompositeOperation = 'source-over';
   P.filter = 'none';
   if (s.layout === 'full') {                                    // a cover: the closed book lying on the desk

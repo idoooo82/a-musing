@@ -79,6 +79,7 @@ def page_curl(old, new, u, back, rect):
     full = new.astype(np.float32).copy(); full[ry0:ry1, rx0:rx1] = out
     return np.clip(full, 0, 255)
 
+NOBOOK = bool(os.environ.get('NOBOOK'))
 TURN_FILM = {'s3': .8}
 _cache = {}
 def film_frame(E, F):
@@ -88,11 +89,16 @@ def film_frame(E, F):
         if s['start'] <= n: k = i
     s = tl[k]
     fr = E.page(k, n, amb).astype(np.float32)
-    TD = TURN_FILM.get(s['id'], 1.15) if s['trans'] == 'turn' else None      # page turns run on film time (a real hand's pace)
+    TD = (TURN_FILM.get(s['id'], 1.15) if s['trans'] == 'turn' else None) if not NOBOOK else (1.0 if s['trans'] == 'turn' else None)      # page turns run on film time (a real hand's pace)
     Fs = timemap.n2F(s['start']) if TD else None
     if k > 0 and ((TD and F < Fs + TD) or (not TD and n < s['start'] + s['tdur'])):
         u = (F - Fs) / TD if TD else (n - s['start']) / s['tdur']
-        if s['trans'] == 'turn':
+        if s['trans'] == 'turn' and NOBOOK:
+            ck = ('nb', id(E), k)
+            if ck not in _cache: _cache[ck] = E.page(k - 1, timemap.F2n(Fs) - .001, amb).astype(np.float32)   # the last moment of the previous scene
+            pv = _cache[ck]
+            fr = pv * (1 - ease(u)) + fr * ease(u)
+        elif s['trans'] == 'turn':
             key = (id(E), k)
             if key not in _cache: _cache[key] = E.page(k - 1, s['start'])
             if 'back' not in _cache: _cache['back'] = E.blank().astype(np.float32) * .93

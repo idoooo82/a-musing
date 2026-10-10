@@ -332,10 +332,12 @@
         } catch (e) { }
       }
       // cross-dissolve caption + folio (repaint the paper under them, redraw the narration clipped to that strip)
+      if (!NOBOOK) {
       const { IX, IY, IW, IH } = PAGE, cy = IY + IH + 34;
       p.save(); p.beginPath(); p.rect(IX - 20, cy - 15, IW + 40, 30); p.rect(W / 2 - 80, 1030, 160, 32); p.clip();
       p.drawImage(PAPER, 0, 0); drawTextLine(p, n); p.restore();
       caption(p, s1, 1 - win(u, 0, .42)); caption(p, this, win(u, .5, .95));
+      }
     },
   });
 })();

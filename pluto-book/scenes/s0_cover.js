@@ -2,6 +2,7 @@
 'use strict';
 let _CLOTH = null;
 function clothTex() {
+  if (typeof NOBOOK !== 'undefined' && NOBOOK) return (_CLOTH = _CLOTH || canvas(W, H));
   if (_CLOTH) return _CLOTH;
   const c = canvas(W, H), x = c.getContext('2d'); x.fillStyle = 'rgb(26,31,78)'; x.fillRect(0, 0, W, H);
   const id = x.getImageData(0, 0, W, H), d = id.data, r = mulberry(21);
@@ -34,6 +35,7 @@ function foilText(p, text, x, y, size, o = {}) {
   return w;
 }
 function coverFrame(p, t, glow = 0) {
+  if (typeof NOBOOK !== 'undefined' && NOBOOK) return;
   p.save(); p.strokeStyle = goldGrad(p, 60, H - 60); p.lineWidth = 6; p.beginPath(); p.roundRect(70, 60, W - 140, H - 120, 26); p.stroke();
   p.lineWidth = 2; p.beginPath(); p.roundRect(92, 82, W - 184, H - 164, 18); p.stroke();
   const corners = [[92, 82], [W - 92, 82], [92, H - 82], [W - 92, H - 82]];
@@ -92,9 +94,9 @@ SCENE({
         face: { smile: lerp(.1, .65, wake) - .9 * worry, open: lerp(0, 1, wake), sad: .7 * worry, look: [lerp(0, -.8, worry), 0] } });
       if (Math.sin(ca) >= 0) drawCharon(g, chx, chy, 30, { spin: t * .3, light: [-.6, -.5] });
     });
-    p.save(); p.font = '600 15px Cinzel'; p.letterSpacing = '7px'; p.fillStyle = rgba(GOLD_L, .9); p.textAlign = 'center'; p.textBaseline = 'middle'; p.direction = 'ltr';
+    if (!NOBOOK) { p.save(); p.font = '600 15px Cinzel'; p.letterSpacing = '7px'; p.fillStyle = rgba(GOLD_L, .9); p.textAlign = 'center'; p.textBaseline = 'middle'; p.direction = 'ltr';
     p.fillText('ATLAS COELESTIS PVERORVM  ·  VOLVMEN IX', 960, 96); p.letterSpacing = '0px';
-    p.font = '500 22px Frank'; p.direction = 'rtl'; p.fillStyle = rgba([226, 210, 180], .85); p.fillText('אטלס השמיים לילדים · כרך ט׳', 960, 124); p.restore();
+    p.font = '500 22px Frank'; p.direction = 'rtl'; p.fillStyle = rgba([226, 210, 180], .85); p.fillText('אטלס השמיים לילדים · כרך ט׳', 960, 124); p.restore(); }
     const said = w => win(n, w - .1, w + .35);
     foilText(p, 'פלוטו', 960, 822, 150, { weight: 900, glow: .15 + .5 * said(.5) * (1 - win(n, 2.4, 3.6) * .4), sheen: (n - .45) / 1.0 });
     const words = ['הכוכב', 'שביטלו', 'אותו'], ts = [1.88, 2.38, 2.98];
@@ -107,7 +109,7 @@ SCENE({
     DUST.draw(p, { t, alpha: .45 }, W, H);
     p.restore();
     // the cover starts to lift (page turn follows in the renderer)
-    if (lift > 0) { p.fillStyle = `rgba(255,240,200,${.06 * lift})`; p.fillRect(0, 0, W, H); }
+    if (lift > 0 && !NOBOOK) { p.fillStyle = `rgba(255,240,200,${.06 * lift})`; p.fillRect(0, 0, W, H); }
   }
 });
 
